@@ -1,0 +1,2 @@
+GitHub Link: https://github.com/SMUJunJie/ISSS626-GAA
+Netlify  Link: https://isss626-gaa-ay2024-24t3.netlify.app/

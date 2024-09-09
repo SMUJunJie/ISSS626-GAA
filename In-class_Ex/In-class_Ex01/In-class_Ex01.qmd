@@ -1,0 +1,38 @@
+---
+title: "In-class_Exercise 1"
+author: "Qu JunJie"
+date: "20 Aug 2024"
+date-modified: "last-modified"
+execute: 
+  eval: true
+  echo: true
+  message: false
+  freeze: true
+format: 
+  html:
+    code-fold: true
+---
+
+```{r}
+pacman::p_load(tidyverse, sf, tmap, ggstatsplot)
+```
+
+```{r}
+mpsz14_shp <- st_read(dsn = "data/",
+                      layer = "MP14_SUBZONE_WEB_PL")
+```
+
+```{r}
+mpzsz14_kml <- st_write(mpsz14_shp, 
+                "data/MasterPlan2014SubzoneBoundaryWebKML.kml",
+                delete_dsn = TRUE)
+```
+
+```{r}
+mpsz19_shp <- st_read(dsn = "data/",
+                      layer = "MPSZ-2019")
+```
+
+```{r}
+mpsz19 <- st_read("data/MasterPlan2019SubzoneBoundaryNoSeaKML.kml")
+```

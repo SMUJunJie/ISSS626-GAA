@@ -1,0 +1,14 @@
+{
+  "hash": "4609d777ee7b3ce542838dd200d86b95",
+  "result": {
+    "markdown": "---\ntitle: \"In-class_Exercise 1\"\nauthor: \"Qu JunJie\"\ndate: \"20 Aug 2024\"\ndate-modified: \"last-modified\"\nexecute: \n  eval: true\n  echo: true\n  message: false\n  freeze: true\nformat: \n  html:\n    code-fold: true\n---\n\n::: {.cell}\n\n```{.r .cell-code}\npacman::p_load(tidyverse, sf, tmap, ggstatsplot)\n```\n:::\n\n::: {.cell}\n\n```{.r .cell-code}\nmpsz14_shp <- st_read(dsn = \"data/\",\n                      layer = \"MP14_SUBZONE_WEB_PL\")\n```\n\n::: {.cell-output .cell-output-stdout}\n```\nReading layer `MP14_SUBZONE_WEB_PL' from data source \n  `D:\\SMUJunJie\\ISSS626-GAA\\In-class_Ex\\In-class_Ex01\\data' using driver `ESRI Shapefile'\nSimple feature collection with 323 features and 15 fields\nGeometry type: MULTIPOLYGON\nDimension:     XY\nBounding box:  xmin: 2667.538 ymin: 15748.72 xmax: 56396.44 ymax: 50256.33\nProjected CRS: SVY21\n```\n:::\n:::\n",
+    "supporting": [],
+    "filters": [
+      "rmarkdown/pagebreak.lua"
+    ],
+    "includes": {},
+    "engineDependencies": {},
+    "preserve": {},
+    "postProcess": true
+  }
+}

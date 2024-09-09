@@ -1,0 +1,44 @@
+---
+title: "In-class_Ex02"
+author: "Qu JunJie"
+date: "02 Sep 2024"
+date-modified: "last-modified"
+execute: 
+  eval: true
+  echo: true
+  message: false
+  freeze: true
+format: 
+  html:
+    code-fold: true
+---
+
+```{r}
+pacman::p_load(sf, raster, spatstat, tmap, tidyverse)
+```
+
+# Issue 1: Installing maptools
+
+maptools is retired and bnary is removed from CRAN. However, we can download from Posit Public Package Manger snapshots by using the code chunk below.
+
+```{r}
+#| eval: FALSE
+install.packages("maptools", repos = "https://packagemanager.posit.co/cran/2023-10-13")
+```
+
+After the installation is completed, it is important to edit the code chunk as show above in order to avoid
+
+# Issue 2: Creating coastal outline
+
+in sf package, there are two functions allow us to combine multuple simple features into
+
+Working with st_union()
+
+The code chunk below, st_union() is used to derive the coastal outline sf tibble data.frame.
+
+```{r}
+# sg_sf <- mpsz_sf %>%
+#   st_union()
+```
+
+sg_sf will look similar to figure below.
