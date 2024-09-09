@@ -1,5 +1,5 @@
 ---
-title: "Hands-on_Ex02A"
+title: "Hands-on_Ex02A 1st Order Spatial Point Patterns Analysis Methods"
 author: "Qu JunJie"
 date: "01 Sep 2024"
 date-modified: "last-modified"
