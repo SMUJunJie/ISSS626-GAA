@@ -61,33 +61,37 @@ thai_one_map
 ```
 
 ```{r}
-st_crs(thai_one_map)
-# 设置 CRS 为 WGS 84 (EPSG:4326)
+admin_boundaries <- st_read(dsn = "data/rawdata",
+                        layer = "tha_admbnda_adm1_rtsd_20220121")
+```
+
+```{r}
+bangkok_boundary <- admin_boundaries %>%
+  filter(ADM1_EN == "Bangkok")
+```
+
+```{r}
+st_crs(thai_one_map)  # 检查道路数据的 CRS
+st_crs(bangkok_boundary)  # 检查曼谷边界数据的 CRS
+```
+
+```{r}
+# 将 CRS 转换为 WGS 84 (EPSG:4326)
 st_crs(thai_one_map) <- 4326
 
 ```
 
 ```{r}
-# 将道路数据的 CRS 转换为与事故数据相同的 CRS
-thai_one_map <- st_transform(thai_one_map, st_crs(bangkok_acc_data))
-
-matched_with_roads <- st_join(bangkok_acc_data, thai_one_map, join = st_nearest_feature)
+bangkok_roads <- st_intersection(thai_one_map, bangkok_boundary)
+head(bangkok_roads)
 ```
 
 ```{r}
-head(matched_with_roads)
-```
+# 绘制曼谷道路和事故数据
+ggplot() +
+  geom_sf(data = bangkok_roads, color = "blue", size = 0.5) +  # 曼谷的道路数据
+  geom_sf(data = bangkok_acc_data, color = "red", size = 2, alpha = 0.6) +  # 曼谷的事故点数据
+  labs(title = "Bangkok Roads and Accident Locations") +
+  theme_minimal()
 
-```{r}
-plot(st_geometry(matched_with_roads))
-```
-
-```{r}
-thai_Administrative <- st_read(dsn = "data/rawdata",
-                                          layer = "tha_admbnda_adm0_rtsd_20220121")
-thai_Administrative
-```
-
-```{r}
-plot(st_geometry(bangkok_acc_data))
 ```

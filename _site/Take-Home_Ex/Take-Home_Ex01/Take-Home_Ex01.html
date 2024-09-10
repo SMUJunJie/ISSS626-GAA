@@ -355,85 +355,106 @@ First 10 features:
 </div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="fu">st_crs</span>(thai_one_map)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>admin_boundaries <span class="ot">&lt;-</span> <span class="fu">st_read</span>(<span class="at">dsn =</span> <span class="st">"data/rawdata"</span>,</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>                        <span class="at">layer =</span> <span class="st">"tha_admbnda_adm1_rtsd_20220121"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>Coordinate Reference System: NA</code></pre>
-</div>
-<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 设置 CRS 为 WGS 84 (EPSG:4326)</span></span>
-<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="fu">st_crs</span>(thai_one_map) <span class="ot">&lt;-</span> <span class="dv">4326</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 将道路数据的 CRS 转换为与事故数据相同的 CRS</span></span>
-<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>thai_one_map <span class="ot">&lt;-</span> <span class="fu">st_transform</span>(thai_one_map, <span class="fu">st_crs</span>(bangkok_acc_data))</span>
-<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>matched_with_roads <span class="ot">&lt;-</span> <span class="fu">st_join</span>(bangkok_acc_data, thai_one_map, <span class="at">join =</span> st_nearest_feature)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(matched_with_roads)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>Simple feature collection with 6 features and 33 fields
-Geometry type: POINT
-Dimension:     XY
-Bounding box:  xmin: 645371.9 ymin: 1506578 xmax: 684102 ymax: 1525144
-Projected CRS: WGS 84 / UTM zone 47N
-# A tibble: 6 × 34
-  acc_code incident_datetime   report_datetime     province_th  province_en
-     &lt;dbl&gt; &lt;dttm&gt;              &lt;dttm&gt;              &lt;chr&gt;        &lt;chr&gt;      
-1   629691 2019-01-01 03:05:00 2019-01-01 03:05:00 กรุงเทพมหานคร Bangkok    
-2   629689 2019-01-01 05:42:00 2019-01-01 05:42:00 กรุงเทพมหานคร Bangkok    
-3   604307 2019-01-01 10:10:00 2019-03-06 10:49:00 กรุงเทพมหานคร Bangkok    
-4  3793736 2019-01-01 17:30:00 2020-03-11 13:15:00 กรุงเทพมหานคร Bangkok    
-5   599070 2019-01-01 19:20:00 2019-01-01 20:57:00 กรุงเทพมหานคร Bangkok    
-6   613605 2019-01-01 21:40:00 2019-11-18 10:57:00 กรุงเทพมหานคร Bangkok    
-# ℹ 29 more variables: agency &lt;chr&gt;, route &lt;chr&gt;, vehicle_type &lt;chr&gt;,
-#   presumed_cause &lt;chr&gt;, accident_type &lt;chr&gt;,
-#   number_of_vehicles_involved &lt;dbl&gt;, number_of_fatalities &lt;dbl&gt;,
-#   number_of_injuries &lt;dbl&gt;, weather_condition &lt;chr&gt;, road_description &lt;chr&gt;,
-#   slope_description &lt;chr&gt;, Month_num &lt;dbl&gt;, Month_fac &lt;ord&gt;, dayofweek &lt;chr&gt;,
-#   geometry &lt;POINT [m]&gt;, name &lt;chr&gt;, name_en &lt;chr&gt;, highway &lt;chr&gt;,
-#   surface &lt;chr&gt;, smoothness &lt;chr&gt;, width &lt;chr&gt;, lanes &lt;chr&gt;, oneway &lt;chr&gt;, …</code></pre>
-</div>
-</div>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(<span class="fu">st_geometry</span>(matched_with_roads))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output-display">
-<div>
-<figure class="figure">
-<p><img src="Take-Home_Ex01_files/figure-html/unnamed-chunk-13-1.png" class="img-fluid figure-img" width="672"></p>
-</figure>
-</div>
-</div>
-</div>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>thai_Administrative <span class="ot">&lt;-</span> <span class="fu">st_read</span>(<span class="at">dsn =</span> <span class="st">"data/rawdata"</span>,</span>
-<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>                                          <span class="at">layer =</span> <span class="st">"tha_admbnda_adm0_rtsd_20220121"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>Reading layer `tha_admbnda_adm0_rtsd_20220121' from data source 
+<pre><code>Reading layer `tha_admbnda_adm1_rtsd_20220121' from data source 
   `D:\SMUJunJie\ISSS626-GAA\Take-Home_Ex\Take-Home_Ex01\data\rawdata' 
   using driver `ESRI Shapefile'
-Simple feature collection with 1 feature and 13 fields
+Simple feature collection with 77 features and 16 fields
 Geometry type: MULTIPOLYGON
 Dimension:     XY
 Bounding box:  xmin: 97.34336 ymin: 5.613038 xmax: 105.637 ymax: 20.46507
 Geodetic CRS:  WGS 84</code></pre>
 </div>
-<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>thai_Administrative</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>bangkok_boundary <span class="ot">&lt;-</span> admin_boundaries <span class="sc">%&gt;%</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(ADM1_EN <span class="sc">==</span> <span class="st">"Bangkok"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="fu">st_crs</span>(thai_one_map)  <span class="co"># 检查道路数据的 CRS</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>Simple feature collection with 1 feature and 13 fields
-Geometry type: MULTIPOLYGON
-Dimension:     XY
-Bounding box:  xmin: 97.34336 ymin: 5.613038 xmax: 105.637 ymax: 20.46507
-Geodetic CRS:  WGS 84
-  Shape_Leng Shape_Area  ADM0_EN   ADM0_TH ADM0_PCODE ADM0_REF ADM0ALT1EN
-1   106.6359   43.40351 Thailand ประเทศไทย         TH     &lt;NA&gt;       &lt;NA&gt;
-  ADM0ALT2EN ADM0ALT1TH ADM0ALT2TH       date    validOn    validTo
-1       &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt; 2019-02-18 2022-01-22 -001-11-30
-                        geometry
-1 MULTIPOLYGON (((100.0903 6....</code></pre>
+<pre><code>Coordinate Reference System: NA</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="fu">st_crs</span>(bangkok_boundary)  <span class="co"># 检查曼谷边界数据的 CRS</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Coordinate Reference System:
+  User input: WGS 84 
+  wkt:
+GEOGCRS["WGS 84",
+    DATUM["World Geodetic System 1984",
+        ELLIPSOID["WGS 84",6378137,298.257223563,
+            LENGTHUNIT["metre",1]]],
+    PRIMEM["Greenwich",0,
+        ANGLEUNIT["degree",0.0174532925199433]],
+    CS[ellipsoidal,2],
+        AXIS["latitude",north,
+            ORDER[1],
+            ANGLEUNIT["degree",0.0174532925199433]],
+        AXIS["longitude",east,
+            ORDER[2],
+            ANGLEUNIT["degree",0.0174532925199433]],
+    ID["EPSG",4326]]</code></pre>
 </div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(<span class="fu">st_geometry</span>(bangkok_acc_data))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 将 CRS 转换为 WGS 84 (EPSG:4326)</span></span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a><span class="fu">st_crs</span>(thai_one_map) <span class="ot">&lt;-</span> <span class="dv">4326</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>bangkok_roads <span class="ot">&lt;-</span> <span class="fu">st_intersection</span>(thai_one_map, bangkok_boundary)</span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(bangkok_roads)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Simple feature collection with 6 features and 30 fields
+Geometry type: LINESTRING
+Dimension:     XY
+Bounding box:  xmin: 100.7831 ymin: 13.73046 xmax: 100.7936 ymax: 13.74666
+Geodetic CRS:  WGS 84
+            name               name_en        highway  surface smoothness width
+1     ถนนฉลองกรุง    Chalong Krung Road      secondary    paved       &lt;NA&gt;  &lt;NA&gt;
+2 ซอยฉลองกรุง 1/1 Soi Chalong Krung 1/1    residential     &lt;NA&gt;       &lt;NA&gt;  &lt;NA&gt;
+3           &lt;NA&gt;                  &lt;NA&gt; secondary_link     &lt;NA&gt;       &lt;NA&gt;  &lt;NA&gt;
+4           &lt;NA&gt;                  &lt;NA&gt;        service     &lt;NA&gt;       &lt;NA&gt;  &lt;NA&gt;
+5     ถนนฉลองกรุง    Chalong Krung Road      secondary concrete       &lt;NA&gt;  &lt;NA&gt;
+6           &lt;NA&gt;                  &lt;NA&gt;        service     &lt;NA&gt;       &lt;NA&gt;  &lt;NA&gt;
+  lanes oneway bridge layer source        name_th     osm_id  osm_type
+1  &lt;NA&gt;    yes   &lt;NA&gt;  &lt;NA&gt;   &lt;NA&gt;     ถนนฉลองกรุง 1125681229 ways_line
+2  &lt;NA&gt;   &lt;NA&gt;   &lt;NA&gt;  &lt;NA&gt;   &lt;NA&gt; ซอยฉลองกรุง 1/1  594401607 ways_line
+3  &lt;NA&gt;    yes   &lt;NA&gt;  &lt;NA&gt;   &lt;NA&gt;           &lt;NA&gt;  472283206 ways_line
+4  &lt;NA&gt;   &lt;NA&gt;   &lt;NA&gt;  &lt;NA&gt;   &lt;NA&gt;           &lt;NA&gt;  594401608 ways_line
+5     2    yes    yes     1   Bing     ถนนฉลองกรุง  116847248 ways_line
+6  &lt;NA&gt;   &lt;NA&gt;   &lt;NA&gt;  &lt;NA&gt;   &lt;NA&gt;           &lt;NA&gt;  317485095 ways_line
+  Shape_Leng Shape_Area ADM1_EN      ADM1_TH ADM1_PCODE ADM1_REF ADM1ALT1EN
+1   2.417227  0.1313387 Bangkok กรุงเทพมหานคร       TH10     &lt;NA&gt;       &lt;NA&gt;
+2   2.417227  0.1313387 Bangkok กรุงเทพมหานคร       TH10     &lt;NA&gt;       &lt;NA&gt;
+3   2.417227  0.1313387 Bangkok กรุงเทพมหานคร       TH10     &lt;NA&gt;       &lt;NA&gt;
+4   2.417227  0.1313387 Bangkok กรุงเทพมหานคร       TH10     &lt;NA&gt;       &lt;NA&gt;
+5   2.417227  0.1313387 Bangkok กรุงเทพมหานคร       TH10     &lt;NA&gt;       &lt;NA&gt;
+6   2.417227  0.1313387 Bangkok กรุงเทพมหานคร       TH10     &lt;NA&gt;       &lt;NA&gt;
+  ADM1ALT2EN ADM1ALT1TH ADM1ALT2TH  ADM0_EN   ADM0_TH ADM0_PCODE       date
+1       &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt; Thailand ประเทศไทย         TH 2019-02-18
+2       &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt; Thailand ประเทศไทย         TH 2019-02-18
+3       &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt; Thailand ประเทศไทย         TH 2019-02-18
+4       &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt; Thailand ประเทศไทย         TH 2019-02-18
+5       &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt; Thailand ประเทศไทย         TH 2019-02-18
+6       &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt; Thailand ประเทศไทย         TH 2019-02-18
+     validOn    validTo                       geometry
+1 2022-01-22 -001-11-30 LINESTRING (100.7913 13.740...
+2 2022-01-22 -001-11-30 LINESTRING (100.7882 13.736...
+3 2022-01-22 -001-11-30 LINESTRING (100.7844 13.732...
+4 2022-01-22 -001-11-30 LINESTRING (100.7873 13.735...
+5 2022-01-22 -001-11-30 LINESTRING (100.7831 13.730...
+6 2022-01-22 -001-11-30 LINESTRING (100.7931 13.746...</code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 绘制曼谷道路和事故数据</span></span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>() <span class="sc">+</span></span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_sf</span>(<span class="at">data =</span> bangkok_roads, <span class="at">color =</span> <span class="st">"blue"</span>, <span class="at">size =</span> <span class="fl">0.5</span>) <span class="sc">+</span>  <span class="co"># 曼谷的道路数据</span></span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_sf</span>(<span class="at">data =</span> bangkok_acc_data, <span class="at">color =</span> <span class="st">"red"</span>, <span class="at">size =</span> <span class="dv">2</span>, <span class="at">alpha =</span> <span class="fl">0.6</span>) <span class="sc">+</span>  <span class="co"># 曼谷的事故点数据</span></span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Bangkok Roads and Accident Locations"</span>) <span class="sc">+</span></span>
+<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
