@@ -1,0 +1,93 @@
+---
+title: "Take-Home_Exercise 1"
+author: "Qu JunJie"
+date: "09 Sep 2024"
+date-modified: "last-modified"
+execute: 
+  eval: true
+  echo: true
+  message: false
+  freeze: true
+  warning: false
+---
+
+```{r}
+pacman::p_load(sf, tidyverse, tmap, spNetwork)
+```
+
+```{r}
+#! eval:false
+acc <- read_csv("data/rawdata/thai_road_accident_2019_2022.csv") %>%
+  mutate(Month_num = month(incident_datetime)) %>%
+  mutate(Month_fac = month(incident_datetime,
+                       label = TRUE,
+                       abbr = TRUE)) %>%
+  mutate(dayofweek = weekdays(incident_datetime))%>%
+  filter(!is.na(longitude) & !is.na(latitude)) %>%  # Remove rows with missing coordinates
+  st_as_sf(coords = c("longitude", "latitude"),
+                       crs=4326) %>%
+  st_transform(crs = 32647)
+```
+
+```{r}
+write_rds(acc, "data/rds/acc.rds")
+```
+
+```{r}
+acc <- read_rds("data/rds/acc.rds")
+```
+
+```{r}
+bangkok_acc_data <- acc %>%
+  filter(province_en == "Bangkok")
+head(bangkok_acc_data)
+```
+
+```{r}
+write_rds(bangkok_acc_data,"data/rds/bangkok_acc_data.rds")
+```
+
+```{r}
+bangkok_acc_data <- read_rds("data/rds/bangkok_acc_data.rds")
+```
+
+```{r}
+thai_one_map <- st_read(dsn = "data/rawdata",
+                        layer = "hotosm_tha_roads_lines_shp")
+```
+
+```{r}
+thai_one_map
+```
+
+```{r}
+st_crs(thai_one_map)
+# 设置 CRS 为 WGS 84 (EPSG:4326)
+st_crs(thai_one_map) <- 4326
+
+```
+
+```{r}
+# 将道路数据的 CRS 转换为与事故数据相同的 CRS
+thai_one_map <- st_transform(thai_one_map, st_crs(bangkok_acc_data))
+
+matched_with_roads <- st_join(bangkok_acc_data, thai_one_map, join = st_nearest_feature)
+```
+
+```{r}
+head(matched_with_roads)
+```
+
+```{r}
+plot(st_geometry(matched_with_roads))
+```
+
+```{r}
+thai_Administrative <- st_read(dsn = "data/rawdata",
+                                          layer = "tha_admbnda_adm0_rtsd_20220121")
+thai_Administrative
+```
+
+```{r}
+plot(st_geometry(bangkok_acc_data))
+```
