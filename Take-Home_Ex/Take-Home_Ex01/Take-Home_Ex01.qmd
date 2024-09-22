@@ -58,7 +58,7 @@ In this take Home exercise 1, multiple R packages will be used to perform variou
 Use the following code to install and launch all necessary R packages:
 
 ```{r}
-pacman::p_load(sf, tidyverse, tmap, spNetwork, spatstat,ggplot2, leaflet, dplyr, lubridate, dbscan, igraph, dodgr)
+pacman::p_load(sf, tidyverse, tmap, spNetwork, spatstat,ggplot2, leaflet, dplyr, lubridate, dbscan, igraph, dodgr,future)
 ```
 
 # 
@@ -123,7 +123,7 @@ BMR_acc <- acc %>%
                             "Pathum Thani", "Samut Prakan", "Samut Sakhon"))
 ```
 
-## 3.2  Saving the Filtered Data
+## 3.2 Saving the Filtered Data
 
 In this step, the filtered dataset `BMR_acc` is saved to an RDS file using the `write_rds()` function. The file is saved at the specified path: `"data/rds/BMR_acc_data.rds"`.
 
@@ -567,7 +567,7 @@ This plot displays the **seasonal decomposition** of monthly accident counts, br
 
 -   The **residuals** appear relatively small and random, suggesting that the model captures the key patterns well.
 
-## 4.8  Monthly Spatial Analysis of Road Accident Hotspots in BMR Using KDE
+## 4.8 Monthly Spatial Analysis of Road Accident Hotspots in BMR Using KDE
 
 The code performs **Kernel Density Estimation (KDE)** on road accident data for each month and combines the results into a single data frame for further analysis or visualization.
 
@@ -793,7 +793,7 @@ The plot illustrates Ripley's K-function, which analyzes the spatial distributio
 
 Ripley's K-function confirms that road accidents are **spatially clustered** in the study area. The clustering is evident at both small and large distances, indicating the presence of high-risk zones where accidents are more frequent. Understanding this spatial clustering is essential for developing targeted safety interventions, such as traffic control measures or infrastructure improvements in accident hotspots.
 
-## 4.12  Monte Carlo Simulation for Validating Road Accident Clustering Using Ripley’s K-function
+## 4.12 Monte Carlo Simulation for Validating Road Accident Clustering Using Ripley’s K-function
 
 This code performs **Monte Carlo simulations** to generate an **envelope** for Ripley's K-function. The envelope is used to compare the observed clustering pattern of road accidents with a **Complete Spatial Randomness (CSR)** pattern, which helps in determining if the observed clustering is statistically significant.
 
@@ -849,3 +849,186 @@ This plot shows the comparison between the **observed K-function** for road acci
 -   This suggests that the clustering of road accidents is not due to random chance but likely due to underlying factors such as road conditions, traffic patterns, or intersection density.
 
 -   The K-function continues to rise steeply as the distance increases, showing that the clustering persists over larger distances.
+
+# 5. NDKE Analysis
+
+## 5.1 Geospatial analysis of Bangkok road accidents.
+
+three datasets are assigned to variables:
+
+1.  **bangkok_acc_data**: Accident data for the Bangkok Metropolitan Region, assigned from **BMR_acc_data**.
+
+2.  **bangkok_boundary**: Geographic boundary data for Bangkok.
+
+3.  **bangkok_roads**: Road network data for Bangkok.
+
+```{r}
+# Use your dataset names
+bangkok_acc_data <- BMR_acc_data
+bangkok_boundary <- bangkok_boundary
+bangkok_roads <- Bangkok_roads
+```
+
+## 5.2 CRS Transformation for Spatial Data in Road Accident Analysis
+
+The code shown here is performing a **coordinate reference system (CRS) transformation** for spatial datasets related to road accidents and road networks in Bangkok. This step ensures that all spatial data is using the same CRS for accurate analysis and visualization.
+
+#### Key Steps:
+
+1.  **Target CRS (`32647`)**:
+
+    -   The target CRS is set to **UTM Zone 47N** (EPSG: 32647), which is appropriate for spatial data in Bangkok, ensuring accurate distance and area calculations.
+
+2.  **CRS Transformation (`st_transform`)**:
+
+    -   The function `st_transform()` is used to project each spatial dataset into the specified CRS:
+
+        -   `bangkok_acc_data`: Road accident data for Bangkok.
+
+        -   `bangkok_roads`: Road network data for Bangkok.
+
+        -   `bangkok_boundary`: Administrative boundary data for Bangkok.
+
+This transformation is necessary because spatial datasets often come with different CRS, and for accurate geospatial analysis (e.g., distance measurements, KDE), all datasets must be in the same projection.
+
+```{r}
+target_crs <- 32647  # UTM Zone 47N
+bangkok_acc_data <- st_transform(bangkok_acc_data, crs = target_crs)
+bangkok_roads <- st_transform(bangkok_roads, crs = target_crs)
+bangkok_boundary <- st_transform(bangkok_boundary, crs = target_crs)
+```
+
+## 5.3 Preprocessing Road Network Data: Filtering and Geometry Casting in Geospatial Analysis
+
+This code snippet processes the road network data for Bangkok, ensuring that only the relevant geometry types are retained and properly formatted for further geospatial analysis. Here’s a breakdown:
+
+1.  **Filter Geometry Types**:
+
+    -   The first part of the code filters the road network dataset (`bangkok_roads`) to retain only the **LINESTRING** and **MULTILINESTRING** geometries. These geometries represent roads as lines and multi-segmented lines, which are essential for spatial analysis in road networks.
+
+2.  **Cast to LINESTRING**:
+
+    -   The second part of the code converts or "casts" any **MULTILINESTRING** geometries into **LINESTRING** geometries using `st_cast()`. This ensures consistency, as most road network analysis requires uniform geometry types.
+
+    -   The argument `group_or_split = TRUE` ensures that complex MULTILINESTRING geometries are split into individual LINESTRING components where necessary.
+
+```{r}
+roads_in_bangkok <- bangkok_roads %>%
+  filter(st_geometry_type(bangkok_roads) %in% c("LINESTRING", "MULTILINESTRING"))
+roads_in_bangkok <- st_cast(roads_in_bangkok, "LINESTRING", group_or_split = TRUE)
+```
+
+## 5.4 Dividing and Sampling Road Networks: Lixelization and Center Extraction for Spatial Analysis
+
+This code is part of preparing the **road network data** for spatial analysis by dividing the road network into **lixels** (linear pixels) and extracting their central points. Lixels are a crucial concept in network-based spatial analysis, particularly for road networks.
+
+1.  **Create Lixels**:
+
+    -   `lixelize_lines()` divides the road network (`roads_in_bangkok`) into segments called **lixels**.
+
+    -   The argument `10000` specifies the desired length of each lixel in meters.
+
+    -   The argument `mindist = 5000` ensures a minimum distance of 5000 meters between the lixels to avoid overlap and maintain spatial resolution.
+
+2.  **Extract Lixel Centers**:
+
+    -   `lines_center()` extracts the **central points** of the lixels created in the previous step, storing them in `samples_bangkok`. These central points are often used as **sample points** for further spatial analyses, such as KDE or spatial interpolation, in road network studies.
+
+```{r}
+lixels_bangkok <- lixelize_lines(roads_in_bangkok, 10000, mindist = 5000)
+samples_bangkok <- lines_center(lixels_bangkok)
+```
+
+## 5.5 Network Kernel Density Estimation (NKDE) for Road Accident Analysis with Parallel Processing
+
+This code performs **Network Kernel Density Estimation (NKDE)** on the road network using **parallel processing** for faster computation. NKDE is used to estimate the density of events (e.g., accidents) over a road network, considering the underlying spatial structure of the network.
+
+#### Key Steps:
+
+1.  **Parallel Processing Setup**:
+
+    -   `plan(multisession)` enables **parallel computation** using multiple CPU cores, which speeds up the NKDE process by distributing tasks across different processing units.
+
+2.  **NKDE Calculation** (`nkde()`):
+
+    -   **lines = lixels_bangkok**: The road network (lixels) where the events (accidents) occur.
+
+    -   **events = bangkok_acc_data**: The event data, in this case, road accidents in Bangkok.
+
+    -   **w = rep(1, nrow(bangkok_acc_data))**: Assigns equal weight to each accident.
+
+    -   **samples = samples_bangkok**: Central points from the lixels used as sampling locations for estimating density.
+
+    -   **kernel_name = "quartic"**: The quartic kernel is used for smoothing the density estimation.
+
+    -   **bw = 1000**: Bandwidth (in meters), which controls the smoothing scale of the kernel density estimation.
+
+    -   **method = "simple"**: A simplified method for NKDE, suitable for this analysis.
+
+    -   **grid_shape = c(100, 100)**: Specifies the grid resolution for the density estimation.
+
+    -   **verbose = TRUE**: Enables detailed output during computation to track progress.
+
+3.  **Future Processing**:
+
+    -   `future()` is used to parallelize the NKDE computation. The result is stored in `future_nkde_result`, allowing the process to run in the background and use multiple cores efficiently.
+
+```{r}
+plan(multisession)  # Parallelize using multiple CPU cores
+future_nkde_result <- future({
+    nkde(
+        lines = lixels_bangkok,
+        events = bangkok_acc_data,
+        w = rep(1, nrow(bangkok_acc_data)),
+        samples = samples_bangkok,
+        kernel_name = "quartic",
+        bw = 1000,
+        div = "bw",
+        method = "simple",
+        grid_shape = c(100, 100),
+        verbose = TRUE
+    )
+})
+```
+
+```{r}
+print(future_nkde_result)
+```
+
+The `MultisessionFuture` object output indicates that the **Network Kernel Density Estimation (NKDE)** task has been initiated and is running asynchronously across multiple CPU cores. Here's what the details tell us:
+
+#### Key Details:
+
+1.  **Asynchronous Evaluation (TRUE)**:
+
+    -   The task is running asynchronously, meaning it is being executed in the background, which allows other processes to run concurrently. The evaluation of the NKDE will be completed independently.
+
+2.  **Lazy Evaluation (FALSE)**:
+
+    -   This indicates that the task has started executing immediately, without waiting for explicit evaluation to be triggered.
+
+3.  **Resources Used**:
+
+    -   **Memory Usage**: The task involves significant data objects, consuming **205.19 MiB** of memory in total.
+
+        -   The `lixels_bangkok` object, which represents the road network segments (lixels), is the largest, using about **109.38 MiB**.
+
+        -   The `samples_bangkok` object, which contains the sample points (centers of lixels), uses about **90.27 MiB**.
+
+        -   The `bangkok_acc_data` object, which stores the accident event data, takes **5.54 MiB**.
+
+4.  **Parallel Processing**:
+
+    -   The job is leveraging the **`spNetwork`** package to perform the network-based KDE, which is running across multiple sessions (using multicore processing). This significantly improves the computational efficiency, especially for large spatial datasets.
+
+5.  **Resolved: FALSE**:
+
+    -   The NKDE task has not yet completed, meaning the density estimation process is still in progress. Once resolved, the result will be stored in `future_nkde_result` and can be accessed or plotted.
+
+6.  **Tracking Output**:
+
+    -   The setup ensures that any output or conditions (e.g., errors or warnings) will be captured during the NKDE process. This is helpful for debugging and monitoring the execution status.
+
+### Conclusion:
+
+The NKDE computation is actively running in parallel across multiple CPU cores to estimate the density of road accidents over the road network. The use of asynchronous evaluation allows for efficient resource utilization. Given the memory consumption, this approach is well-suited for handling large spatial datasets like road networks and accident data in Bangkok. You can monitor the status, and once completed, visualize the NKDE results to analyze accident density patterns across the road network.
