@@ -221,7 +221,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <li><a href="#setting-coordinate-reference-system-crs" id="toc-setting-coordinate-reference-system-crs" class="nav-link" data-scroll-target="#setting-coordinate-reference-system-crs">3.7Setting Coordinate Reference System (CRS)</a></li>
   <li><a href="#intersecting-road-network-with-administrative-boundaries" id="toc-intersecting-road-network-with-administrative-boundaries" class="nav-link" data-scroll-target="#intersecting-road-network-with-administrative-boundaries">3.8 Intersecting Road Network with Administrative Boundaries</a></li>
   </ul></li>
-  <li><a href="#geovisualisation-and-analysis" id="toc-geovisualisation-and-analysis" class="nav-link" data-scroll-target="#geovisualisation-and-analysis">4. <strong>Geovisualisation and Analysis</strong></a>
+  <li><a href="#geovisualisation-and-analysis" id="toc-geovisualisation-and-analysis" class="nav-link" data-scroll-target="#geovisualisation-and-analysis">4. Geovisualisation and Analysis</a>
   <ul class="collapse">
   <li><a href="#enhancing-accident-data-with-date-components" id="toc-enhancing-accident-data-with-date-components" class="nav-link" data-scroll-target="#enhancing-accident-data-with-date-components">4.1 Enhancing Accident Data with Date Components</a></li>
   <li><a href="#plotting-the-number-of-accidents-over-time" id="toc-plotting-the-number-of-accidents-over-time" class="nav-link" data-scroll-target="#plotting-the-number-of-accidents-over-time">4.2 Plotting the Number of Accidents Over Time</a>
@@ -250,6 +250,17 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <li><a href="#interpretation" id="toc-interpretation" class="nav-link" data-scroll-target="#interpretation">Interpretation:</a></li>
   </ul></li>
   <li><a href="#monte-carlo-simulation-for-validating-road-accident-clustering-using-ripleys-k-function" id="toc-monte-carlo-simulation-for-validating-road-accident-clustering-using-ripleys-k-function" class="nav-link" data-scroll-target="#monte-carlo-simulation-for-validating-road-accident-clustering-using-ripleys-k-function">4.12 Monte Carlo Simulation for Validating Road Accident Clustering Using Ripley’s K-function</a></li>
+  </ul></li>
+  <li><a href="#ndke-analysis" id="toc-ndke-analysis" class="nav-link" data-scroll-target="#ndke-analysis">5. NDKE Analysis</a>
+  <ul class="collapse">
+  <li><a href="#geospatial-analysis-of-bangkok-road-accidents." id="toc-geospatial-analysis-of-bangkok-road-accidents." class="nav-link" data-scroll-target="#geospatial-analysis-of-bangkok-road-accidents.">5.1 Geospatial analysis of Bangkok road accidents.</a></li>
+  <li><a href="#crs-transformation-for-spatial-data-in-road-accident-analysis" id="toc-crs-transformation-for-spatial-data-in-road-accident-analysis" class="nav-link" data-scroll-target="#crs-transformation-for-spatial-data-in-road-accident-analysis">5.2 CRS Transformation for Spatial Data in Road Accident Analysis</a></li>
+  <li><a href="#preprocessing-road-network-data-filtering-and-geometry-casting-in-geospatial-analysis" id="toc-preprocessing-road-network-data-filtering-and-geometry-casting-in-geospatial-analysis" class="nav-link" data-scroll-target="#preprocessing-road-network-data-filtering-and-geometry-casting-in-geospatial-analysis">5.3 Preprocessing Road Network Data: Filtering and Geometry Casting in Geospatial Analysis</a></li>
+  <li><a href="#dividing-and-sampling-road-networks-lixelization-and-center-extraction-for-spatial-analysis" id="toc-dividing-and-sampling-road-networks-lixelization-and-center-extraction-for-spatial-analysis" class="nav-link" data-scroll-target="#dividing-and-sampling-road-networks-lixelization-and-center-extraction-for-spatial-analysis">5.4 Dividing and Sampling Road Networks: Lixelization and Center Extraction for Spatial Analysis</a></li>
+  <li><a href="#network-kernel-density-estimation-nkde-for-road-accident-analysis-with-parallel-processing" id="toc-network-kernel-density-estimation-nkde-for-road-accident-analysis-with-parallel-processing" class="nav-link" data-scroll-target="#network-kernel-density-estimation-nkde-for-road-accident-analysis-with-parallel-processing">5.5 Network Kernel Density Estimation (NKDE) for Road Accident Analysis with Parallel Processing</a>
+  <ul class="collapse">
+  <li><a href="#conclusion-1" id="toc-conclusion-1" class="nav-link" data-scroll-target="#conclusion-1">Conclusion:</a></li>
+  </ul></li>
   </ul></li>
   </ul>
 </nav>
@@ -328,7 +339,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </ul>
 <p>Use the following code to install and launch all necessary R packages:</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>pacman<span class="sc">::</span><span class="fu">p_load</span>(sf, tidyverse, tmap, spNetwork, spatstat,ggplot2, leaflet, dplyr, lubridate, dbscan, igraph, dodgr)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>pacman<span class="sc">::</span><span class="fu">p_load</span>(sf, tidyverse, tmap, spNetwork, spatstat,ggplot2, leaflet, dplyr, lubridate, dbscan, igraph, dodgr,future)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section>
 </section>
@@ -520,7 +531,7 @@ Geodetic CRS:  WGS 84</code></pre>
 </section>
 </section>
 <section id="geovisualisation-and-analysis" class="level1">
-<h1>4. <strong>Geovisualisation and Analysis</strong></h1>
+<h1>4. Geovisualisation and Analysis</h1>
 <section id="enhancing-accident-data-with-date-components" class="level2">
 <h2 class="anchored" data-anchor-id="enhancing-accident-data-with-date-components">4.1 Enhancing Accident Data with Date Components</h2>
 <p>This R code snippet enhances the accident data (<code>BMR_acc_data</code>) by extracting additional date components from the <code>incident_datetime</code> column. The <code>mutate()</code> function is used to create new columns:</p>
@@ -1139,6 +1150,207 @@ Done.</code></pre>
 <li><p>This suggests that the clustering of road accidents is not due to random chance but likely due to underlying factors such as road conditions, traffic patterns, or intersection density.</p></li>
 <li><p>The K-function continues to rise steeply as the distance increases, showing that the clustering persists over larger distances.</p></li>
 </ul>
+</section>
+</section>
+</section>
+<section id="ndke-analysis" class="level1">
+<h1>5. NDKE Analysis</h1>
+<section id="geospatial-analysis-of-bangkok-road-accidents." class="level2">
+<h2 class="anchored" data-anchor-id="geospatial-analysis-of-bangkok-road-accidents.">5.1 Geospatial analysis of Bangkok road accidents.</h2>
+<p>three datasets are assigned to variables:</p>
+<ol type="1">
+<li><p><strong>bangkok_acc_data</strong>: Accident data for the Bangkok Metropolitan Region, assigned from <strong>BMR_acc_data</strong>.</p></li>
+<li><p><strong>bangkok_boundary</strong>: Geographic boundary data for Bangkok.</p></li>
+<li><p><strong>bangkok_roads</strong>: Road network data for Bangkok.</p></li>
+</ol>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb27"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Use your dataset names</span></span>
+<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a>bangkok_acc_data <span class="ot">&lt;-</span> BMR_acc_data</span>
+<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a>bangkok_boundary <span class="ot">&lt;-</span> bangkok_boundary</span>
+<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a>bangkok_roads <span class="ot">&lt;-</span> Bangkok_roads</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="crs-transformation-for-spatial-data-in-road-accident-analysis" class="level2">
+<h2 class="anchored" data-anchor-id="crs-transformation-for-spatial-data-in-road-accident-analysis">5.2 CRS Transformation for Spatial Data in Road Accident Analysis</h2>
+<p>The code shown here is performing a <strong>coordinate reference system (CRS) transformation</strong> for spatial datasets related to road accidents and road networks in Bangkok. This step ensures that all spatial data is using the same CRS for accurate analysis and visualization.</p>
+<section id="key-steps-2" class="level4">
+<h4 class="anchored" data-anchor-id="key-steps-2">Key Steps:</h4>
+<ol type="1">
+<li><p><strong>Target CRS (<code>32647</code>)</strong>:</p>
+<ul>
+<li>The target CRS is set to <strong>UTM Zone 47N</strong> (EPSG: 32647), which is appropriate for spatial data in Bangkok, ensuring accurate distance and area calculations.</li>
+</ul></li>
+<li><p><strong>CRS Transformation (<code>st_transform</code>)</strong>:</p>
+<ul>
+<li><p>The function <code>st_transform()</code> is used to project each spatial dataset into the specified CRS:</p>
+<ul>
+<li><p><code>bangkok_acc_data</code>: Road accident data for Bangkok.</p></li>
+<li><p><code>bangkok_roads</code>: Road network data for Bangkok.</p></li>
+<li><p><code>bangkok_boundary</code>: Administrative boundary data for Bangkok.</p></li>
+</ul></li>
+</ul></li>
+</ol>
+<p>This transformation is necessary because spatial datasets often come with different CRS, and for accurate geospatial analysis (e.g., distance measurements, KDE), all datasets must be in the same projection.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb28"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a>target_crs <span class="ot">&lt;-</span> <span class="dv">32647</span>  <span class="co"># UTM Zone 47N</span></span>
+<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a>bangkok_acc_data <span class="ot">&lt;-</span> <span class="fu">st_transform</span>(bangkok_acc_data, <span class="at">crs =</span> target_crs)</span>
+<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a>bangkok_roads <span class="ot">&lt;-</span> <span class="fu">st_transform</span>(bangkok_roads, <span class="at">crs =</span> target_crs)</span>
+<span id="cb28-4"><a href="#cb28-4" aria-hidden="true" tabindex="-1"></a>bangkok_boundary <span class="ot">&lt;-</span> <span class="fu">st_transform</span>(bangkok_boundary, <span class="at">crs =</span> target_crs)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+</section>
+<section id="preprocessing-road-network-data-filtering-and-geometry-casting-in-geospatial-analysis" class="level2">
+<h2 class="anchored" data-anchor-id="preprocessing-road-network-data-filtering-and-geometry-casting-in-geospatial-analysis">5.3 Preprocessing Road Network Data: Filtering and Geometry Casting in Geospatial Analysis</h2>
+<p>This code snippet processes the road network data for Bangkok, ensuring that only the relevant geometry types are retained and properly formatted for further geospatial analysis. Here’s a breakdown:</p>
+<ol type="1">
+<li><p><strong>Filter Geometry Types</strong>:</p>
+<ul>
+<li>The first part of the code filters the road network dataset (<code>bangkok_roads</code>) to retain only the <strong>LINESTRING</strong> and <strong>MULTILINESTRING</strong> geometries. These geometries represent roads as lines and multi-segmented lines, which are essential for spatial analysis in road networks.</li>
+</ul></li>
+<li><p><strong>Cast to LINESTRING</strong>:</p>
+<ul>
+<li><p>The second part of the code converts or “casts” any <strong>MULTILINESTRING</strong> geometries into <strong>LINESTRING</strong> geometries using <code>st_cast()</code>. This ensures consistency, as most road network analysis requires uniform geometry types.</p></li>
+<li><p>The argument <code>group_or_split = TRUE</code> ensures that complex MULTILINESTRING geometries are split into individual LINESTRING components where necessary.</p></li>
+</ul></li>
+</ol>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb29"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a>roads_in_bangkok <span class="ot">&lt;-</span> bangkok_roads <span class="sc">%&gt;%</span></span>
+<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="fu">st_geometry_type</span>(bangkok_roads) <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">"LINESTRING"</span>, <span class="st">"MULTILINESTRING"</span>))</span>
+<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a>roads_in_bangkok <span class="ot">&lt;-</span> <span class="fu">st_cast</span>(roads_in_bangkok, <span class="st">"LINESTRING"</span>, <span class="at">group_or_split =</span> <span class="cn">TRUE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="dividing-and-sampling-road-networks-lixelization-and-center-extraction-for-spatial-analysis" class="level2">
+<h2 class="anchored" data-anchor-id="dividing-and-sampling-road-networks-lixelization-and-center-extraction-for-spatial-analysis">5.4 Dividing and Sampling Road Networks: Lixelization and Center Extraction for Spatial Analysis</h2>
+<p>This code is part of preparing the <strong>road network data</strong> for spatial analysis by dividing the road network into <strong>lixels</strong> (linear pixels) and extracting their central points. Lixels are a crucial concept in network-based spatial analysis, particularly for road networks.</p>
+<ol type="1">
+<li><p><strong>Create Lixels</strong>:</p>
+<ul>
+<li><p><code>lixelize_lines()</code> divides the road network (<code>roads_in_bangkok</code>) into segments called <strong>lixels</strong>.</p></li>
+<li><p>The argument <code>10000</code> specifies the desired length of each lixel in meters.</p></li>
+<li><p>The argument <code>mindist = 5000</code> ensures a minimum distance of 5000 meters between the lixels to avoid overlap and maintain spatial resolution.</p></li>
+</ul></li>
+<li><p><strong>Extract Lixel Centers</strong>:</p>
+<ul>
+<li><code>lines_center()</code> extracts the <strong>central points</strong> of the lixels created in the previous step, storing them in <code>samples_bangkok</code>. These central points are often used as <strong>sample points</strong> for further spatial analyses, such as KDE or spatial interpolation, in road network studies.</li>
+</ul></li>
+</ol>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb30"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a>lixels_bangkok <span class="ot">&lt;-</span> <span class="fu">lixelize_lines</span>(roads_in_bangkok, <span class="dv">10000</span>, <span class="at">mindist =</span> <span class="dv">5000</span>)</span>
+<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a>samples_bangkok <span class="ot">&lt;-</span> <span class="fu">lines_center</span>(lixels_bangkok)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="network-kernel-density-estimation-nkde-for-road-accident-analysis-with-parallel-processing" class="level2">
+<h2 class="anchored" data-anchor-id="network-kernel-density-estimation-nkde-for-road-accident-analysis-with-parallel-processing">5.5 Network Kernel Density Estimation (NKDE) for Road Accident Analysis with Parallel Processing</h2>
+<p>This code performs <strong>Network Kernel Density Estimation (NKDE)</strong> on the road network using <strong>parallel processing</strong> for faster computation. NKDE is used to estimate the density of events (e.g., accidents) over a road network, considering the underlying spatial structure of the network.</p>
+<section id="key-steps-3" class="level4">
+<h4 class="anchored" data-anchor-id="key-steps-3">Key Steps:</h4>
+<ol type="1">
+<li><p><strong>Parallel Processing Setup</strong>:</p>
+<ul>
+<li><code>plan(multisession)</code> enables <strong>parallel computation</strong> using multiple CPU cores, which speeds up the NKDE process by distributing tasks across different processing units.</li>
+</ul></li>
+<li><p><strong>NKDE Calculation</strong> (<code>nkde()</code>):</p>
+<ul>
+<li><p><strong>lines = lixels_bangkok</strong>: The road network (lixels) where the events (accidents) occur.</p></li>
+<li><p><strong>events = bangkok_acc_data</strong>: The event data, in this case, road accidents in Bangkok.</p></li>
+<li><p><strong>w = rep(1, nrow(bangkok_acc_data))</strong>: Assigns equal weight to each accident.</p></li>
+<li><p><strong>samples = samples_bangkok</strong>: Central points from the lixels used as sampling locations for estimating density.</p></li>
+<li><p><strong>kernel_name = “quartic”</strong>: The quartic kernel is used for smoothing the density estimation.</p></li>
+<li><p><strong>bw = 1000</strong>: Bandwidth (in meters), which controls the smoothing scale of the kernel density estimation.</p></li>
+<li><p><strong>method = “simple”</strong>: A simplified method for NKDE, suitable for this analysis.</p></li>
+<li><p><strong>grid_shape = c(100, 100)</strong>: Specifies the grid resolution for the density estimation.</p></li>
+<li><p><strong>verbose = TRUE</strong>: Enables detailed output during computation to track progress.</p></li>
+</ul></li>
+<li><p><strong>Future Processing</strong>:</p>
+<ul>
+<li><code>future()</code> is used to parallelize the NKDE computation. The result is stored in <code>future_nkde_result</code>, allowing the process to run in the background and use multiple cores efficiently.</li>
+</ul></li>
+</ol>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb31"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plan</span>(multisession)  <span class="co"># Parallelize using multiple CPU cores</span></span>
+<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a>future_nkde_result <span class="ot">&lt;-</span> <span class="fu">future</span>({</span>
+<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">nkde</span>(</span>
+<span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a>        <span class="at">lines =</span> lixels_bangkok,</span>
+<span id="cb31-5"><a href="#cb31-5" aria-hidden="true" tabindex="-1"></a>        <span class="at">events =</span> bangkok_acc_data,</span>
+<span id="cb31-6"><a href="#cb31-6" aria-hidden="true" tabindex="-1"></a>        <span class="at">w =</span> <span class="fu">rep</span>(<span class="dv">1</span>, <span class="fu">nrow</span>(bangkok_acc_data)),</span>
+<span id="cb31-7"><a href="#cb31-7" aria-hidden="true" tabindex="-1"></a>        <span class="at">samples =</span> samples_bangkok,</span>
+<span id="cb31-8"><a href="#cb31-8" aria-hidden="true" tabindex="-1"></a>        <span class="at">kernel_name =</span> <span class="st">"quartic"</span>,</span>
+<span id="cb31-9"><a href="#cb31-9" aria-hidden="true" tabindex="-1"></a>        <span class="at">bw =</span> <span class="dv">1000</span>,</span>
+<span id="cb31-10"><a href="#cb31-10" aria-hidden="true" tabindex="-1"></a>        <span class="at">div =</span> <span class="st">"bw"</span>,</span>
+<span id="cb31-11"><a href="#cb31-11" aria-hidden="true" tabindex="-1"></a>        <span class="at">method =</span> <span class="st">"simple"</span>,</span>
+<span id="cb31-12"><a href="#cb31-12" aria-hidden="true" tabindex="-1"></a>        <span class="at">grid_shape =</span> <span class="fu">c</span>(<span class="dv">100</span>, <span class="dv">100</span>),</span>
+<span id="cb31-13"><a href="#cb31-13" aria-hidden="true" tabindex="-1"></a>        <span class="at">verbose =</span> <span class="cn">TRUE</span></span>
+<span id="cb31-14"><a href="#cb31-14" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb31-15"><a href="#cb31-15" aria-hidden="true" tabindex="-1"></a>})</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb32"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(future_nkde_result)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>MultisessionFuture:
+Label: '&lt;none&gt;'
+Expression:
+{
+    nkde(lines = lixels_bangkok, events = bangkok_acc_data, w = rep(1, 
+        nrow(bangkok_acc_data)), samples = samples_bangkok, kernel_name = "quartic", 
+        bw = 1000, div = "bw", method = "simple", grid_shape = c(100, 
+            100), verbose = TRUE)
+}
+Lazy evaluation: FALSE
+Asynchronous evaluation: TRUE
+Local evaluation: TRUE
+Environment: R_GlobalEnv
+Capture standard output: TRUE
+Capture condition classes: 'condition' (excluding 'nothing')
+Globals: 3 objects totaling 205.19 MiB (sf 'lixels_bangkok' of 109.38 MiB, sf 'bangkok_acc_data' of 5.54 MiB, sf 'samples_bangkok' of 90.27 MiB)
+Packages: 1 packages ('spNetwork')
+L'Ecuyer-CMRG RNG seed: &lt;none&gt; (seed = FALSE)
+Resolved: FALSE
+Value: &lt;not collected&gt;
+Conditions captured: &lt;none&gt;
+Early signaling: FALSE
+Owner process: df53c1dd-823d-a8bd-aeb5-9a0b3dd9086b
+Class: 'MultisessionFuture', 'ClusterFuture', 'MultiprocessFuture', 'Future', 'environment'</code></pre>
+</div>
+</div>
+<p>The <code>MultisessionFuture</code> object output indicates that the <strong>Network Kernel Density Estimation (NKDE)</strong> task has been initiated and is running asynchronously across multiple CPU cores. Here’s what the details tell us:</p>
+</section>
+<section id="key-details" class="level4">
+<h4 class="anchored" data-anchor-id="key-details">Key Details:</h4>
+<ol type="1">
+<li><p><strong>Asynchronous Evaluation (TRUE)</strong>:</p>
+<ul>
+<li>The task is running asynchronously, meaning it is being executed in the background, which allows other processes to run concurrently. The evaluation of the NKDE will be completed independently.</li>
+</ul></li>
+<li><p><strong>Lazy Evaluation (FALSE)</strong>:</p>
+<ul>
+<li>This indicates that the task has started executing immediately, without waiting for explicit evaluation to be triggered.</li>
+</ul></li>
+<li><p><strong>Resources Used</strong>:</p>
+<ul>
+<li><p><strong>Memory Usage</strong>: The task involves significant data objects, consuming <strong>205.19 MiB</strong> of memory in total.</p>
+<ul>
+<li><p>The <code>lixels_bangkok</code> object, which represents the road network segments (lixels), is the largest, using about <strong>109.38 MiB</strong>.</p></li>
+<li><p>The <code>samples_bangkok</code> object, which contains the sample points (centers of lixels), uses about <strong>90.27 MiB</strong>.</p></li>
+<li><p>The <code>bangkok_acc_data</code> object, which stores the accident event data, takes <strong>5.54 MiB</strong>.</p></li>
+</ul></li>
+</ul></li>
+<li><p><strong>Parallel Processing</strong>:</p>
+<ul>
+<li>The job is leveraging the <strong><code>spNetwork</code></strong> package to perform the network-based KDE, which is running across multiple sessions (using multicore processing). This significantly improves the computational efficiency, especially for large spatial datasets.</li>
+</ul></li>
+<li><p><strong>Resolved: FALSE</strong>:</p>
+<ul>
+<li>The NKDE task has not yet completed, meaning the density estimation process is still in progress. Once resolved, the result will be stored in <code>future_nkde_result</code> and can be accessed or plotted.</li>
+</ul></li>
+<li><p><strong>Tracking Output</strong>:</p>
+<ul>
+<li>The setup ensures that any output or conditions (e.g., errors or warnings) will be captured during the NKDE process. This is helpful for debugging and monitoring the execution status.</li>
+</ul></li>
+</ol>
+</section>
+<section id="conclusion-1" class="level3">
+<h3 class="anchored" data-anchor-id="conclusion-1">Conclusion:</h3>
+<p>The NKDE computation is actively running in parallel across multiple CPU cores to estimate the density of road accidents over the road network. The use of asynchronous evaluation allows for efficient resource utilization. Given the memory consumption, this approach is well-suited for handling large spatial datasets like road networks and accident data in Bangkok. You can monitor the status, and once completed, visualize the NKDE results to analyze accident density patterns across the road network.</p>
 
 
 </section>
