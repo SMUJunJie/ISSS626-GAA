@@ -262,7 +262,7 @@ Samut_Prakan_roads <- st_intersection(thai_one_map, Samut_Prakan_boundary)
 Samut_Sakhon_roads <- st_intersection(thai_one_map, Samut_Sakhon_boundary)
 ```
 
-# 4. **Geovisualisation and Analysis**
+# 4. Geovisualisation and Analysis
 
 ## 4.1 Enhancing Accident Data with Date Components
 
