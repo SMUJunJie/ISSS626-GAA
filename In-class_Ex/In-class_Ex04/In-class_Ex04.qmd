@@ -1,0 +1,108 @@
+---
+title: "In-class_Ex04"
+author: "Qu JunJie"
+---
+
+```{r}
+pacman::p_load(sf,ggstatsplot, tmap, tidyverse, knitr, GWmodel)
+```
+
+```{r}
+hunan_sf <- st_read(dsn = "data/geospatial", 
+                 layer = "Hunan")
+```
+
+```{r}
+hunan2012 <- read_csv("data/aspatial/Hunan_2012.csv")
+```
+
+```{r}
+hunan_sf <- left_join(hunan_sf, hunan2012) %>%
+  select(1:3, 7,15, 16, 31,32)
+```
+
+```{r}
+hunan_sp <- hunan_sf %>%
+  as_Spatial()
+```
+
+```{r}
+bw_CV <- bw.gwr(GDPPC ~ 1,
+                data = hunan_sp,
+                approach = "CV",
+                adaptive = TRUE,
+                kernel = "bisquare",
+                longlat = T)
+
+```
+
+```{r}
+bw_CV
+```
+
+```{r}
+bw_AIC <- bw.gwr(GDPPC ~ 1,
+                data = hunan_sp,
+                approach = "AIC",
+                adaptive = TRUE,
+                kernel = "bisquare",
+                longlat = T)
+```
+
+```{r}
+bw_AIC
+```
+
+```{r}
+bw_CV <- bw.gwr(GDPPC ~ 1,
+                data = hunan_sp,
+                approach = "CV",
+                adaptive = FALSE,
+                kernel = "bisquare",
+                longlat = T)
+```
+
+```{R}
+bw_AIC <- bw.gwr(GDPPC ~ 1,
+                data = hunan_sp,
+                approach = "AIC",
+                adaptive = FALSE,
+                kernel = "bisquare",
+                longlat = T)
+```
+
+```{r}
+gwstat <- gwss(data = hunan_sp,
+               vars = "GDPPC",
+               bw = bw_AIC,
+               kernel = "bisquare",
+               adaptive = TRUE,
+               longlat = T)
+```
+
+```{r}
+gwstat_df <- as.data.frame(gwstat$SDF)
+```
+
+```{r}
+hunan_gstat <- cbind(hunan_sf, gwstat_df)
+```
+
+```{r}
+tm_shape(hunan_gstat) +
+  tm_fill("GDPPC_LM",
+          n = 5,
+          style = "quantile") +
+  tm_borders(alpha = 0.5) +
+  tm_layout(main.title = "Distribution of Geographically weighted mean",
+            main.title.position = "center",
+            main.title.size = 1.0,
+            legend.text.size = 0.5,
+            legend.height = 0.5,
+            legend.width = 0.5,
+            frame = TRUE)
+```
+
+```{r}
+
+```

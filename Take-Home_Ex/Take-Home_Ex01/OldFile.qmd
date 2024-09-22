@@ -97,6 +97,10 @@ Samut_Sakhon_roads <- st_intersection(thai_one_map, Samut_Sakhon_boundary)
 ```
 
 ```{r}
+Bangkok_roads <- st_intersection(thai_one_map, bangkok_boundary)
+```
+
+```{r}
 acc_data <- BMR_acc_data %>%
   mutate(
     incident_date = as.Date(incident_datetime),
