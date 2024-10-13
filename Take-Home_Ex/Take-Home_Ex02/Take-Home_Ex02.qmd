@@ -1,5 +1,5 @@
 ---
-title: "Take-Home_Ex02"
+title: "Take-Home Exercise 02"
 author: "Qu JunJie"
 date: "12 October 2024"
 date-modified: "last-modified"
