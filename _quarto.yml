@@ -29,6 +29,9 @@ website:
       menu: 
         - text: "Take-Home Exercise"
           href: "Take-Home_Ex/Take-Home_Ex01/Take-Home_Ex01.html"
+        - text: "Take-Home Exercise"
+          href: "Take-Home_Ex/Take-Home_Ex01/Take-Home_Ex02.html"
+          
           
 
     right:

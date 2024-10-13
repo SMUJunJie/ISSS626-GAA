@@ -1,0 +1,2262 @@
+---
+title: "Take-Home_Ex02"
+author: "Qu JunJie"
+date: "12 October 2024"
+date-modified: "last-modified"
+execute: 
+  eval: true
+  echo: true
+  message: false
+  freeze: true
+  warning: false
+---
+
+# 1. Overview
+
+Thailand’s tourism industry plays a crucial role in the country’s economy, contributing around 20% to its GDP. In 2019, tourism revenues reached 90 billion US\$, but the COVID-19 pandemic drastically reduced this to 24 billion US\$ in 2020. Since September 2021, the sector has shown signs of gradual recovery. However, the tourism economy is not uniformly distributed across Thailand; the majority of tourism activities and revenues are concentrated in five key provinces: Bangkok, Phuket, Chiang Mai, Sukhothai, and Phetchaburi. These regions have been the focus of recovery and continue to drive Thailand’s tourism sector post-pandemic.
+
+## 2. Get Started
+
+-   **Examine Spatial and Spatio-temporal Dependence**:
+
+    -   Investigate if Thailand's tourism economy indicators are dependent on space and time.
+
+-   **Detect Clusters and Outliers**:
+
+    -   Identify spatial clusters and outliers in tourism activity across provinces.
+
+-   **Identify Emerging Hotspots/Coldspots**:
+
+    -   Detect regions with increasing or decreasing tourism activity over time.
+
+-   **Prepare Geospatial Data**:
+
+    -   Create geospatial data layers for provinces, tourism indicators, and a spacetime tourism indicator layer.
+
+-   **Perform Spatial Analysis**:
+
+    -   Conduct global and local spatial autocorrelation, and emerging hotspot analysis using `sfdep` methods.
+
+## 2.1 Study Area
+
+The focus of this study would be in Thailand.
+
+## 2.2 Install and Launching R packages.
+
+The code chunk below installs and loads **sf, tidyverse, tmap, spNetwork, spatstat,ggplot2, leaflet, dplyr, lubridate, dbscan, igraph, dodgr,future,spacetime, sfdep,cowplot,spdep,** packages into R environment. 
+
+```{r}
+pacman::p_load(sf, tidyverse, tmap, spNetwork, spatstat,ggplot2, leaflet, dplyr, lubridate, dbscan, igraph, dodgr,future,spacetime, sfdep,cowplot,spdep)
+```
+
+# 3. Data Preparation
+
+## 3.1 Import Data
+
+-   **Loading the CSV File**: The dataset `"thailand_domestic_tourism_2019_2023_ver2.csv"` located in the path `"data/rawdata"` is read into R using the `read_csv` function from the `readr` package. This file is assumed to contain data on domestic tourism activity in Thailand between the years 2019 and 2023.
+
+-   **Selecting Specific Columns**: The dataset `thai_tourism_data` is then modified using the `select` function from `dplyr` to remove the columns `province_thai` and `region_thai`. These columns presumably represent the province names and region names in Thai script, and the user is excluding them, likely to focus on the English versions or other variables.
+
+```{r}
+thai_tourism_data <- read_csv("data/rawdata/thailand_domestic_tourism_2019_2023_ver2.csv")
+thai_tourism_data <- thai_tourism_data %>% select(-province_thai, -region_thai)
+```
+
+## 3.2 Aggregating and Summarizing Tourist Data by Year, Province, and Region in Thailand
+
+-   **Filtering the Dataset**:
+
+    -   The code filters the `thai_tourism_data` dataset for records where the `variable` is equal to `"no_tourist_all"`. This variable likely represents the total number of tourists in each record, isolating only the relevant data for this analysis.
+
+-   **Extracting the Year**:
+
+    -   The `mutate()` function creates a new column, `year`, which extracts the year component from the `date` column. This enables the dataset to be grouped and analyzed on a yearly basis.
+
+-   **Grouping Data**:
+
+    -   The dataset is grouped by several attributes: `year`, `province_eng` (province name in English), `region_eng` (region name in English), and `variable`. This allows for the aggregation of tourist data across years, provinces, and regions.
+
+-   **Summarizing the Total Number of Tourists**:
+
+    -   The `summarise()` function computes the total number of tourists by summing the values in the `value` column for each group (year, province, region, variable). The `na.rm = TRUE` option ensures that any missing values are ignored during the summation.
+
+```{r}
+no_tourist_all <- thai_tourism_data %>%
+  filter(variable == "no_tourist_all") %>%
+  mutate(year = year(date)) %>%
+  group_by(year, province_eng, region_eng, variable) %>%
+  summarise(total_value = sum(value, na.rm = TRUE))
+```
+
+## 3.3 Aggregating and Summarizing Foreign Tourist Data by Year, Province, and Region in Thailand
+
+-   **Filtering the Dataset**:
+
+    -   The code filters the `thai_tourism_data` dataset for rows where the `variable` is equal to `"no_tourist_foreign"`. This variable likely represents the number of foreign tourists, isolating data that pertains specifically to international tourism.
+
+-   **Extracting the Year**:
+
+    -   Using the `mutate()` function, the `year` column is created by extracting the year from the `date` column. This allows for the aggregation of data on an annual basis.
+
+-   **Grouping Data**:
+
+    -   The dataset is grouped by `year`, `province_eng`, `region_eng`, and `variable` to structure the data based on these dimensions, making it easier to calculate summaries for each combination of year, province, and region.
+
+-   **Summarizing the Total Number of Foreign Tourists**:
+
+    -   The `summarise()` function computes the total number of foreign tourists by summing the values in the `value` column for each group. Missing values (NA) are ignored using `na.rm = TRUE`.
+
+```{r}
+no_tourist_foreign <- thai_tourism_data %>%
+  filter(variable == "no_tourist_foreign") %>%
+  mutate(year = year(date)) %>%
+  group_by(year, province_eng, region_eng, variable) %>%
+  summarise(total_value = sum(value, na.rm = TRUE))
+```
+
+## 3.4 Aggregating and Summarizing Tourist Stay Data by Year, Province, and Region in Thailand
+
+-   **Filtering the Dataset**:
+
+    -   The `thai_tourism_data` dataset is filtered for rows where the `variable` is equal to `"no_tourist_stay"`. This variable likely refers to the number of tourists staying in certain locations, isolating data related to overnight stays or similar metrics.
+
+-   **Extracting the Year**:
+
+    -   The `mutate()` function is used to extract the year from the `date` column and store it in a new column called `year`. This prepares the data for aggregation by year.
+
+-   **Grouping Data**:
+
+    -   The `group_by()` function groups the data by `year`, `province_eng` (the province in English), `region_eng` (the region in English), and `variable`. This organizes the data for each unique combination of year, province, and region.
+
+-   **Summarizing the Total Tourist Stay Values**:
+
+    -   The `summarise()` function calculates the total number of tourists staying (or related statistic) by summing the values in the `value` column. The `na.rm = TRUE` argument ensures that missing values (NA) are ignored in the summation process.
+
+```{r}
+no_tourist_stay <- thai_tourism_data %>%
+  filter(variable == "no_tourist_stay") %>%
+  mutate(year = year(date)) %>%
+  group_by(year, province_eng, region_eng, variable) %>%
+  summarise(total_value = sum(value, na.rm = TRUE))
+```
+
+## 3.5 Aggregating and Summarizing Domestic Thai Tourist Data by Year, Province, and Region
+
+-   **Filtering the Dataset**:
+
+    -   The `thai_tourism_data` dataset is filtered to include only rows where the `variable` is equal to `"no_tourist_thai"`, which represents the number of Thai tourists traveling within the country. This isolates data specifically related to domestic tourism.
+
+-   **Extracting the Year**:
+
+    -   The `mutate()` function is used to create a new `year` column by extracting the year from the `date` column. This allows for the aggregation of data on a yearly basis.
+
+-   **Grouping Data**:
+
+    -   The `group_by()` function groups the data by `year`, `province_eng` (province name in English), `region_eng` (region name in English), and `variable`. This groups the data by time and location to summarize domestic tourist activity in each province and region over time.
+
+-   **Summarizing the Total Number of Domestic Tourists**:
+
+    -   The `summarise()` function calculates the total number of domestic tourists by summing the `value` column for each group. Missing values are ignored with the `na.rm = TRUE` argument.
+
+```{r}
+no_tourist_thai <- thai_tourism_data %>%
+  filter(variable == "no_tourist_thai") %>%
+  mutate(year = year(date)) %>%
+  group_by(year, province_eng, region_eng, variable) %>%
+  summarise(total_value = sum(value, na.rm = TRUE))
+```
+
+## 3.6 Calculating the Average Ratio of Tourist Stays by Year, Province, and Region
+
+-   **Filtering the Dataset**:
+
+    -   The dataset `thai_tourism_data` is filtered to include only rows where the `variable` is equal to `"ratio_tourist_stay"`. This variable likely represents the ratio of tourist stays, such as the proportion of tourists staying overnight or a similar measure.
+
+-   **Extracting the Year**:
+
+    -   The `mutate()` function creates a new column `year` by extracting the year component from the `date` column. This allows for the data to be analyzed on an annual basis.
+
+-   **Grouping Data**:
+
+    -   The `group_by()` function groups the data by `year`, `province_eng`, `region_eng`, and `variable`. This prepares the data for calculating summaries, grouping it by time and location.
+
+-   **Calculating the Average Ratio**:
+
+    -   The `summarise()` function calculates the average value of the ratio using `mean()` for each group. The `na.rm = TRUE` argument ensures that missing values are ignored during the calculation of the mean.
+
+```{r}
+ratio_tourist_stay <- thai_tourism_data %>%
+  filter(variable == "ratio_tourist_stay") %>%
+  mutate(year = year(date)) %>%
+  group_by(year, province_eng, region_eng, variable) %>%
+  summarise(avg_value = mean(value, na.rm = TRUE))
+```
+
+## 3.7 Aggregating and Summarizing Total Tourism Revenue by Year, Province, and Region
+
+-   **Filtering the Dataset**:
+
+    -   The dataset `thai_tourism_data` is filtered to include only rows where the `variable` is equal to `"revenue_all"`. This variable likely represents the total tourism revenue, isolating records specifically related to revenue.
+
+-   **Extracting the Year**:
+
+    -   The `mutate()` function is used to extract the year from the `date` column and create a new column called `year`. This prepares the data for aggregation by year.
+
+-   **Grouping Data**:
+
+    -   The data is grouped by `year`, `province_eng` (province name in English), `region_eng` (region name in English), and `variable`. This groups the data based on time and location to organize the revenue data across different provinces and regions.
+
+-   **Summarizing Total Revenue**:
+
+    -   The `summarise()` function calculates the total revenue by summing the `value` column for each group (year, province, region, variable). The `na.rm = TRUE` argument ensures that missing values are ignored during the summation.
+
+```{r}
+revenue_all <- thai_tourism_data %>%
+  filter(variable == "revenue_all") %>%
+  mutate(year = year(date)) %>%
+  group_by(year, province_eng, region_eng, variable) %>%
+  summarise(total_value = sum(value, na.rm = TRUE))
+```
+
+## 3.8 Aggregating and Summarizing Foreign Tourism Revenue by Year, Province, and Region
+
+-   **Filtering the Dataset**:
+
+    -   The dataset `thai_tourism_data` is filtered to include only rows where the `variable` is equal to `"revenue_foreign"`. This variable likely represents the revenue generated from foreign tourists, isolating relevant data for foreign tourism revenue.
+
+-   **Extracting the Year**:
+
+    -   The `mutate()` function creates a new column `year` by extracting the year from the `date` column. This step allows for summarizing data by year.
+
+-   **Grouping Data**:
+
+    -   The `group_by()` function groups the data by `year`, `province_eng` (province name in English), `region_eng` (region name in English), and `variable`. This groups the data by time and location to organize the foreign revenue data for each province and region.
+
+-   **Summarizing Total Foreign Tourism Revenue**:
+
+    -   The `summarise()` function calculates the total foreign tourism revenue by summing the `value` column for each group. Missing values are ignored using the `na.rm = TRUE` argument.
+
+```{r}
+revenue_foreign <- thai_tourism_data %>%
+  filter(variable == "revenue_foreign") %>%
+  mutate(year = year(date)) %>%
+  group_by(year, province_eng, region_eng, variable) %>%
+  summarise(total_value = sum(value, na.rm = TRUE))
+```
+
+## 3.9 Aggregating and Summarizing Domestic Tourism Revenue by Year, Province, and Region
+
+-   **Filtering the Dataset**:
+
+    -   The `thai_tourism_data` dataset is filtered to include only rows where the `variable` is equal to `"revenue_thai"`. This variable likely represents the revenue generated from domestic tourists (Thai nationals), allowing for focused analysis on domestic tourism revenue.
+
+-   **Extracting the Year**:
+
+    -   The `mutate()` function creates a new column `year` by extracting the year from the `date` column. This enables aggregation of the revenue data by year.
+
+-   **Grouping Data**:
+
+    -   The data is grouped by `year`, `province_eng` (province name in English), `region_eng` (region name in English), and `variable`. This grouping organizes the revenue data by time (year) and space (province and region).
+
+-   **Summarizing Total Domestic Tourism Revenue**:
+
+    -   The `summarise()` function calculates the total domestic tourism revenue by summing the `value` column for each group. The `na.rm = TRUE` argument ensures that missing values are ignored during the summation process.
+
+```{r}
+revenue_thai <- thai_tourism_data %>%
+  filter(variable == "revenue_thai") %>%
+  mutate(year = year(date)) %>%
+  group_by(year, province_eng, region_eng, variable) %>%
+  summarise(total_value = sum(value, na.rm = TRUE))
+```
+
+## 3.9 Reading Administrative Boundaries Using sf Package in R
+
+-   **Function Used**:
+
+    -   The function `st_read()` from the `sf` package is used to read the geospatial data. This function is commonly used to load shapefiles or other spatial data formats into R.
+
+-   **Data Source**:
+
+    -   The argument `dsn = "data/rawdata"` specifies the data source name (the directory where the spatial data is located). In this case, it points to the folder containing the raw data files.
+
+-   **Layer Specification**:
+
+    -   The argument `layer = "tha_admbnda_adm1_rtsd_20220121"` specifies the specific layer to be read from the file. This is typically the name of the shapefile (without the `.shp` extension) or the desired layer within a data source containing multiple layers. This layer likely represents Thailand’s administrative boundaries at a certain level (e.g., provincial or regional).
+
+```{r}
+admin_boundaries <- st_read(dsn = "data/rawdata",
+                        layer = "tha_admbnda_adm1_rtsd_20220121")
+```
+
+## 3.10 Selecting and Removing Unnecessary Columns from Administrative Boundaries Data
+
+-   **Data Preparation**:
+
+    -   The code modifies the `admin_boundaries` dataset by selecting only relevant columns and removing others. The dataset contains administrative boundary data, and the goal is to focus on a smaller subset of the data.
+
+-   **Columns Removed**:
+
+    -   The following columns are excluded from the dataset:
+
+        -   `ADM1_TH`, `ADM1_REF`, `ADM1_ALT1EN`, `ADM1_ALT1TH`, `ADM1_ALT2EN`, `ADM1_ALT2TH`, `ADMO_EN`, `ADMO_TH`, `ADMO_PCODE`, `date`, `validOn`, `validTo`, `Shape_Leng`, `Shape_Area`, `ADM1_PCODE`.
+
+    -   These columns likely represent metadata or attributes that are either redundant or not needed for the upcoming analysis.
+
+-   **Purpose**:
+
+    -   By removing these columns, the dataset is simplified, making it easier to work with and reducing unnecessary complexity. This step prepares the dataset for further spatial analysis or visualization tasks by focusing only on the essential data.
+
+```{r}
+admin_boundaries <- admin_boundaries %>% select(-ADM1_TH,-ADM1_REF,-ADM1ALT1EN,-ADM1ALT1TH,-ADM1ALT2EN,-ADM1ALT2TH,-ADM0_EN,-ADM0_TH,-ADM0_PCODE,-date,-validOn,-validTo,-Shape_Leng,-Shape_Area,-ADM1_PCODE)
+```
+
+## 3.11 Renaming Columns in the Administrative Boundaries Data
+
+-   **Renaming a Column**:
+
+    -   The column `ADM1_EN`, which likely represents the English names of provinces in Thailand, is being renamed to `province_eng`. This renaming improves clarity and consistency in the dataset by providing a more descriptive column name.
+
+-   **Purpose**:
+
+    -   The new column name `province_eng` more clearly conveys that this column contains the names of provinces in English. This is especially helpful for further analysis, making the data more readable and easier to interpret.
+
+```{r}
+admin_boundaries <- admin_boundaries %>%
+  rename(
+    province_eng = ADM1_EN
+  )
+```
+
+## 3.11 Joining Administrative Boundaries with Tourism and Revenue Data
+
+This R code snippet is used to merge multiple tourism-related datasets with the administrative boundaries dataset. The `left_join()` function from the `dplyr` package is used to merge these datasets based on the common column `province_eng`. Below is a breakdown of the process:
+
+1.  **Datasets to Be Merged**:
+
+    -   The datasets include:
+
+        -   `no_tourist_all`: Total number of tourists.
+
+        -   `no_tourist_foreign`: Number of foreign tourists.
+
+        -   `no_tourist_stay`: Number of tourists staying in the province.
+
+        -   `no_tourist_thai`: Number of Thai (domestic) tourists.
+
+        -   `ratio_tourist_stay`: Ratio of tourist stays.
+
+        -   `revenue_all`: Total tourism revenue.
+
+        -   `revenue_foreign`: Revenue from foreign tourists.
+
+        -   `revenue_thai`: Revenue from domestic (Thai) tourists.
+
+2.  **Joining with Administrative Boundaries**:
+
+    -   Each of these datasets is merged (joined) with the `admin_boundaries` dataset using a left join, ensuring that all rows from `admin_boundaries` are retained and only matching rows from the tourism datasets are included.
+
+    -   The join is based on the `province_eng` column, which is the shared key in both the `admin_boundaries` dataset and each tourism dataset.
+
+3.  **Purpose**:
+
+    -   This process integrates spatial data (administrative boundaries) with tourism and revenue data, making it possible to perform spatial analysis and visualize tourism trends and revenue generation across different provinces.
+
+```{r}
+no_tourist_all <- admin_boundaries%>%
+  left_join(no_tourist_all, by = "province_eng")
+
+no_tourist_foreign <- admin_boundaries%>%
+  left_join(no_tourist_foreign, by = "province_eng")
+
+no_tourist_stay <- admin_boundaries%>%
+  left_join(no_tourist_stay, by = "province_eng")
+
+no_tourist_thai <- admin_boundaries%>%
+  left_join(no_tourist_thai, by = "province_eng")
+
+ratio_tourist_stay <- admin_boundaries%>%
+  left_join(ratio_tourist_stay, by = "province_eng")
+
+revenue_all <- admin_boundaries%>%
+  left_join(revenue_all, by = "province_eng")
+
+revenue_foreign <- admin_boundaries%>%
+  left_join(revenue_foreign, by = "province_eng")
+
+revenue_thai <- admin_boundaries%>%
+  left_join(revenue_thai, by = "province_eng")
+```
+
+# 4. **Exploratory Data Analysis**
+
+## 4.1 Plotting a Map with Highlighted Top 5 Provinces by Total Tourists
+
+-   **Base Map Plot**:
+
+    -   The `ggplot()` function initializes the plot using the `no_tourist_all` dataset.
+
+    -   `geom_sf()` is used to plot the geometry of all provinces, with the fill representing `total_value` (total tourists) and a border color of "black". The size of the borders is set to `0.2`.
+
+    -   `facet_wrap(~ year)` is used to create a separate plot for each year, allowing for a yearly comparison of tourism data.
+
+-   **Highlighting Top 5 Provinces**:
+
+    -   Another `geom_sf()` layer is added to highlight the top 5 provinces with the highest number of tourists for each year. This is done by filtering the `no_tourist_all` dataset and using `top_n(5, total_value)` to select the top 5 provinces based on the `total_value` column.
+
+    -   The top 5 provinces are highlighted with a `fill = "red"` and a thicker border (`size = 0.4`).
+
+-   **Color Scale for Other Provinces**:
+
+    -   The `scale_fill_viridis_c()` function is applied to give the remaining provinces a color gradient based on the total number of tourists. The `option = "plasma"` defines the color scheme, and the name for the scale is set to `"Total Tourists"`.
+
+-   **Titles and Labels**:
+
+    -   The `labs()` function is used to add a title, caption, and legend label to the plot. The title is set to indicate the total number of tourists by province and year, with a special note that the top 5 provinces are highlighted.
+
+-   **Clean Theme**:
+
+    -   The `theme_minimal()` function is applied to give the plot a minimalistic and clean look.
+
+    -   Additional theme customizations are made to remove axis text, ticks, grids, and background by setting these elements to `element_blank()`.
+
+```{r}
+ggplot(no_tourist_all) +
+  geom_sf(aes(fill = total_value), color = "black", size = 0.2) +
+  facet_wrap(~ year) +
+  geom_sf(data = no_tourist_all %>%
+            group_by(year) %>%
+            top_n(5, total_value), 
+          aes(geometry = geometry), 
+          fill = "red", color = "black", size = 0.4) +
+  scale_fill_viridis_c(option = "plasma", name = "Total Tourists") +
+  labs(title = "no_tourist_all by Province and Year (Top 5 Highlighted)",
+       caption = "Source: Your Dataset",
+       fill = "Total Tourists") +
+  theme_minimal() +
+  theme(axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid = element_blank(),
+        panel.background = element_blank())
+```
+
+### Observations:
+
+1.  **Tourism Decline (2020-2021)**: Significant drop in tourist numbers, especially in the top provinces (marked in red), likely due to the COVID-19 pandemic.
+
+2.  **Recovery (2022-2023)**: Tourist numbers begin to recover, with an increase in red-highlighted provinces, but still below 2019 levels.
+
+3.  **Concentration**: Key tourist provinces remain consistent across the years, indicating reliance on a few regions.
+
+### Analysis:
+
+1.  **COVID-19 Impact**: A clear decline in tourism during 2020-2021, with a gradual recovery from 2022 onwards.
+
+2.  **Focus on Key Provinces**: Tourism remains concentrated in a few provinces, suggesting targeted recovery efforts should focus on these areas.
+
+## 4.2 Plotting a Map with Highlighted Top 5 Provinces by Foreign Tourists
+
+-   **Base Map Plot**:
+
+    -   The `ggplot()` function initializes the plot using the `no_tourist_foreign` dataset.
+
+    -   `geom_sf()` is used to plot the geometry of all provinces, where the `fill` represents `total_value` (the total number of foreign tourists). The borders of the provinces are colored "black", and the size of the borders is set to `0.2`.
+
+    -   The map is faceted by `year` using `facet_wrap(~ year)`, allowing separate maps for each year to compare trends in foreign tourists across years.
+
+-   **Highlighting Top 5 Provinces**:
+
+    -   A second `geom_sf()` layer is added to highlight the top 5 provinces with the highest number of foreign tourists for each year. The `top_n(5, total_value)` function selects the top 5 provinces based on the `total_value` column.
+
+    -   These top 5 provinces are highlighted in red (`fill = "red"`) with a thicker black border (`size = 0.4`), making them stand out on the map.
+
+-   **Color Scale for Other Provinces**:
+
+    -   The `scale_fill_viridis_c()` function is applied to give the rest of the provinces a color gradient based on the total number of foreign tourists. The `option = "plasma"` defines the color palette, and the legend is labeled as `"Total Tourists"`.
+
+-   **Titles and Labels**:
+
+    -   The `labs()` function adds titles and labels to the map. The title indicates that the map shows the number of foreign tourists by province and year, with the top 5 provinces highlighted. A caption is added for data sourcing, and the color legend is labeled as "Total Tourists".
+
+-   **Clean Theme**:
+
+    -   The `theme_minimal()` function is applied to give the plot a clean, minimalistic look.
+
+    -   Further customization is made using `theme()`, where axis text, ticks, grids, and background elements are removed (`element_blank()`) to maintain a simple and clear presentation.
+
+```{r}
+ggplot(no_tourist_foreign) +
+  geom_sf(aes(fill = total_value), color = "black", size = 0.2) +
+  facet_wrap(~ year) +
+  geom_sf(data = no_tourist_foreign %>%
+            group_by(year) %>%
+            top_n(5, total_value), 
+          aes(geometry = geometry), 
+          fill = "red", color = "black", size = 0.4) +
+  scale_fill_viridis_c(option = "plasma", name = "Total Tourists") +
+  labs(title = "no_tourist_foreign by Province and Year (Top 5 Highlighted)",
+       caption = "Source: Your Dataset",
+       fill = "Total Tourists") +
+  theme_minimal() +
+  theme(axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid = element_blank(),
+        panel.background = element_blank())
+```
+
+### Observations:
+
+1.  **2019 vs. 2020-2021**:
+
+    -   **2019** shows the highest concentration of foreign tourists, especially in coastal and central provinces, highlighted in red.
+
+    -   **2020-2021** saw a significant decline, with fewer red areas indicating the top 5 provinces receiving foreign tourists.
+
+2.  **2022-2023**:
+
+    -   A recovery in foreign tourism begins in 2022 and strengthens in 2023, though still not reaching the 2019 levels.
+
+    -   The top provinces remain relatively consistent, focused on key tourist hubs.
+
+3.  **NA Data**:
+
+    -   A gap year appears with no available data (possibly for 2021), as marked by "NA".
+
+### Analysis:
+
+1.  **COVID-19's Impact**: Foreign tourism saw a sharp decline in 2020 and 2021, but gradual recovery is evident starting in 2022.
+
+2.  **Key Provinces**: Despite the drop, the same provinces (central and coastal) consistently lead in foreign tourism, suggesting strong reliance on specific regions for international tourism recovery.
+
+## 4.3 Plotting a Map with Highlighted Top 5 Provinces by Tourists Who Stay
+
+-   **Base Map Plot**:
+
+    -   The plot is initiated using the `ggplot()` function with the dataset `no_tourist_stay`.
+
+    -   `geom_sf()` is used to map the boundaries of all provinces. The `fill` aesthetic represents the `total_value` (number of tourists who stay), while the borders of provinces are outlined in black with a thickness of `0.2`.
+
+    -   `facet_wrap(~ year)` divides the map into separate panels by year, allowing you to compare the data across years.
+
+-   **Highlighting Top 5 Provinces**:
+
+    -   A second `geom_sf()` layer is added to highlight the top 5 provinces by the number of tourists who stay in each year. The `top_n(5, total_value)` function is used to select the top 5 provinces based on the `total_value` column.
+
+    -   These top provinces are highlighted in red (`fill = "red"`) with a thicker black border (`size = 0.4`), making them stand out on the map.
+
+-   **Color Scale for Other Provinces**:
+
+    -   The remaining provinces are colored using the `viridis` color scale (`plasma` option) based on the total number of tourists who stay. The color gradient is named `"Total Tourists"` in the legend, and `scale_fill_viridis_c()` is used to apply this color scheme.
+
+-   **Titles and Labels**:
+
+    -   The `labs()` function adds a title, caption, and legend labels. The title indicates that the map shows the number of tourists who stay, by province and year, with the top 5 provinces highlighted.
+
+    -   The caption is labeled as "Source: Your Dataset" and the legend is labeled `"Total Tourists"`.
+
+-   **Clean Theme**:
+
+    -   The `theme_minimal()` function applies a minimalist theme to the plot.
+
+    -   Additional theme customizations (`theme()`) are used to remove axis text, ticks, grid lines, and background elements to make the plot clean and visually simple.
+
+```{r}
+ggplot(no_tourist_stay) +
+  geom_sf(aes(fill = total_value), color = "black", size = 0.2) +
+  facet_wrap(~ year) +
+  geom_sf(data = no_tourist_stay %>%
+            group_by(year) %>%
+            top_n(5, total_value), 
+          aes(geometry = geometry), 
+          fill = "red", color = "black", size = 0.4) +
+  scale_fill_viridis_c(option = "plasma", name = "Total Tourists") +
+  labs(title = "no_tourist_stay by Province and Year (Top 5 Highlighted)",
+       caption = "Source: Your Dataset",
+       fill = "Total Tourists") +
+  theme_minimal() +
+  theme(axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid = element_blank(),
+        panel.background = element_blank())
+```
+
+### Observations:
+
+1.  **2019**: Highest tourist stay numbers are observed in the northern and southern provinces, highlighted in red.
+
+2.  **2020-2021**: Sharp decline in tourist stays due to COVID-19, with fewer provinces (top 5) standing out in red, indicating less overall activity.
+
+3.  **2022-2023**: There is a gradual recovery in tourist stays, with some provinces regaining pre-pandemic levels of activity.
+
+### Analysis:
+
+1.  **COVID-19 Impact**: The number of tourist stays significantly decreased in 2020 and 2021, with a gradual recovery seen from 2022 onwards.
+
+2.  **Key Provinces**: The same provinces remain the top destinations for longer stays, indicating consistency in popular travel regions, essential for targeting tourism recovery efforts.
+
+## 4.4 Plotting a Map with Highlighted Top 5 Provinces by Domestic Tourists (Thai Tourists)
+
+-   **Base Map Plot**:
+
+    -   The `ggplot()` function initializes the map using the `no_tourist_thai` dataset, which contains data on the number of Thai tourists by province.
+
+    -   `geom_sf()` is used to plot the boundaries of all provinces. The `fill` aesthetic is mapped to `total_value` (the total number of domestic tourists), while the borders of provinces are outlined in black (`color = "black"`) with a thickness of `0.2`.
+
+    -   `facet_wrap(~ year)` creates separate map panels for each year, allowing for a year-by-year comparison of domestic tourism trends.
+
+-   **Highlighting Top 5 Provinces**:
+
+    -   Another `geom_sf()` layer is added to highlight the top 5 provinces with the highest number of domestic tourists. The `top_n(5, total_value)` function is used to select the top 5 provinces based on the `total_value` column.
+
+    -   These top 5 provinces are filled in red (`fill = "red"`) with a thicker black border (`size = 0.4`) to visually emphasize them.
+
+-   **Color Scale for Other Provinces**:
+
+    -   The remaining provinces are colored using the `viridis` color scale with the `"plasma"` option, based on the total number of domestic tourists. The color scale is applied using `scale_fill_viridis_c()`, and the legend is labeled `"Total Tourists"`.
+
+-   **Titles and Labels**:
+
+    -   The `labs()` function adds a title, caption, and legend labels. The title specifies that the map shows the number of Thai tourists by province and year, with the top 5 provinces highlighted. The caption indicates the data source as "Your Dataset", and the legend is labeled `"Total Tourists"`.
+
+```{r}
+ggplot(no_tourist_thai) +
+  geom_sf(aes(fill = total_value), color = "black", size = 0.2) +
+  facet_wrap(~ year) +
+  geom_sf(data = no_tourist_thai %>%
+            group_by(year) %>%
+            top_n(5, total_value), 
+          aes(geometry = geometry), 
+          fill = "red", color = "black", size = 0.4) +
+  scale_fill_viridis_c(option = "plasma", name = "Total Tourists") +
+  labs(title = "no_tourist_thai by Province and Year (Top 5 Highlighted)",
+       caption = "Source: Your Dataset",
+       fill = "Total Tourists") +
+  theme_minimal() +
+  theme(axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid = element_blank(),
+        panel.background = element_blank())
+```
+
+### Observations:
+
+1.  **2019**: The highest number of domestic tourists is concentrated in central and northern provinces, with the top 5 provinces highlighted in red.
+
+2.  **2020-2021**: There is a clear decline in domestic tourist numbers, but some provinces still remain in the top 5 throughout the pandemic.
+
+3.  **2022-2023**: A recovery is observed, with domestic tourism activity picking up across more provinces, although it hasn't fully returned to 2019 levels.
+
+### Analysis:
+
+1.  **COVID-19 Impact**: The drop in domestic tourism is less drastic than foreign tourism, suggesting local travel may have been more resilient during the pandemic.
+
+2.  **Key Provinces**: The same top provinces remain consistent, indicating they are popular domestic tourist destinations. This consistency provides opportunities for targeted tourism marketing and infrastructure development in these regions.
+
+## 4.5 Plotting a Map with Highlighted Top 5 Provinces by Ratio of Tourist Stays
+
+-   **Base Map Plot**:
+
+    -   The plot is initiated using the `ggplot()` function with the dataset `ratio_tourist_stay`.
+
+    -   `geom_sf()` is used to plot the geographical boundaries of all provinces. The `fill` aesthetic is mapped to the `avg_value` (average ratio of tourist stays), and the borders are outlined in black with a thickness of `0.2`.
+
+    -   `facet_wrap(~ year)` creates separate map panels for each year, allowing for easy comparison of tourist stay ratios over time.
+
+-   **Highlighting Top 5 Provinces**:
+
+    -   Another `geom_sf()` layer is added to highlight the top 5 provinces with the highest average ratio of tourist stays in each year. The `top_n(5, avg_value)` function is used to select the top 5 provinces based on the `avg_value` column.
+
+    -   These provinces are filled in red with a thicker black border (`size = 0.4`), ensuring that they stand out on the map.
+
+-   **Color Scale for Other Provinces**:
+
+    -   The remaining provinces are colored using the `viridis` color scale, with the `"plasma"` option for a visually appealing gradient. The color scale is applied using `scale_fill_viridis_c()`, and the legend is labeled `"Total Tourists"` to represent the average ratio of tourist stays.
+
+-   **Titles and Labels**:
+
+    -   The `labs()` function adds a title, caption, and labels. The title indicates that the map shows the average ratio of tourist stays by province and year, with the top 5 provinces highlighted. The caption provides the source of the data, and the fill scale is labeled as `"Total Tourists"`.
+
+-   **Clean Theme**:
+
+    -   A minimalistic theme is applied using `theme_minimal()` to simplify the visual presentation.
+
+    -   Further theme customizations are made using `theme()`, where axis text, ticks, grid lines, and background elements are removed (`element_blank()`), giving the plot a clean and professional look.
+
+```{r}
+ggplot(ratio_tourist_stay) +
+  geom_sf(aes(fill = avg_value), color = "black", size = 0.2) +
+  facet_wrap(~ year) +
+  geom_sf(data = ratio_tourist_stay %>%
+            group_by(year) %>%
+            top_n(5, avg_value), 
+          aes(geometry = geometry), 
+          fill = "red", color = "black", size = 0.4) +
+  scale_fill_viridis_c(option = "plasma", name = "Total Tourists") +
+  labs(title = "ratio_tourist_stay by Province and Year (Top 5 Highlighted)",
+       caption = "Source: Your Dataset",
+       fill = "Total Tourists") +
+  theme_minimal() +
+  theme(axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid = element_blank(),
+        panel.background = element_blank())
+```
+
+### Observations:
+
+1.  **2019-2021**: The ratio of tourists staying overnight in provinces fluctuates, with key provinces in the north and central regions highlighted in red. The overall ratio appears to decline during 2021 due to pandemic impacts.
+
+2.  **2022-2023**: The ratio begins to recover, with more areas returning to pre-pandemic levels. The provinces highlighted in red indicate the top 5 with the highest ratios of tourists staying overnight.
+
+3.  **NA Data**: One year shows missing data for this analysis.
+
+### Analysis:
+
+1.  **Tourist Stay Patterns**: Despite the impact of COVID-19, certain provinces consistently attract tourists for longer stays, which may reflect their popularity or resilience in tourism infrastructure.
+
+2.  **Recovery**: The ratio of overnight stays shows signs of recovery post-pandemic, indicating a return of tourism activity, especially in key tourist destinations.
+
+## 4.6 Plotting a Map with Highlighted Top 5 Provinces by Total Tourism Revenue
+
+-   **Base Map Plot**:
+
+    -   The `ggplot()` function is initialized using the `revenue_all` dataset, which contains data on the total tourism revenue by province.
+
+    -   `geom_sf()` is used to plot the boundaries of all provinces. The `fill` aesthetic is mapped to `total_value` (total revenue), and the provinces are outlined in black with a border size of `0.2`.
+
+    -   `facet_wrap(~ year)` divides the map into separate panels for each year, making it easier to compare how tourism revenue has changed over time.
+
+-   **Highlighting Top 5 Provinces**:
+
+    -   A second `geom_sf()` layer is added to highlight the top 5 provinces with the highest total tourism revenue in each year. The `top_n(5, total_value)` function selects the top 5 provinces based on the `total_value` column.
+
+    -   These top provinces are filled in red with a thicker black border (`size = 0.4`), making them stand out in the map.
+
+-   **Color Scale for Other Provinces**:
+
+    -   The remaining provinces are colored using the `viridis` color scale (`plasma` option) based on the total tourism revenue. The color scale is applied using `scale_fill_viridis_c()`, and the legend is labeled `"Total Tourists"` to represent the total revenue.
+
+-   **Titles and Labels**:
+
+    -   The `labs()` function is used to add a title, caption, and legend labels. The title indicates that the map shows total tourism revenue by province and year, with the top 5 provinces highlighted. The caption provides the source of the data as `"Your Dataset"`, and the fill scale is labeled as `"Total Tourists"`.
+
+-   **Clean Theme**:
+
+    -   A minimalistic theme is applied using `theme_minimal()` to ensure a clean presentation.
+
+    -   Additional theme customizations are made using `theme()`, where axis text, ticks, grid lines, and background are removed (`element_blank()`), giving the plot a clean and professional look.
+
+```{r}
+ggplot(revenue_all) +
+  geom_sf(aes(fill = total_value), color = "black", size = 0.2) +
+  facet_wrap(~ year) +
+  geom_sf(data = revenue_all %>%
+            group_by(year) %>%
+            top_n(5, total_value), 
+          aes(geometry = geometry), 
+          fill = "red", color = "black", size = 0.4) +
+  scale_fill_viridis_c(option = "plasma", name = "Total Tourists") +
+  labs(title = "revenue_all by Province and Year (Top 5 Highlighted)",
+       caption = "Source: Your Dataset",
+       fill = "Total Tourists") +
+  theme_minimal() +
+  theme(axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid = element_blank(),
+        panel.background = element_blank())
+```
+
+### Observations:
+
+1.  **2019-2021**: The highest revenue from tourists is concentrated in a few provinces, highlighted in red, especially in 2019. The revenue drops noticeably in 2020-2021 due to the pandemic, with fewer provinces showing high tourist revenue.
+
+2.  **2022-2023**: Recovery of tourist revenue is observed, though not yet at pre-pandemic levels. Key provinces still dominate the revenue generation.
+
+3.  **NA Data**: One year has missing data, indicated as "NA."
+
+### Analysis:
+
+1.  **Impact on Revenue**: The reduction in tourist numbers during 2020-2021 significantly affected revenue, as indicated by fewer high-revenue provinces.
+
+2.  **Key Provinces**: The same provinces remain critical in generating high tourist revenue across the years, showing their importance in Thailand’s tourism-driven economy and the need for focused recovery strategies.
+
+## 4.7 Plotting a Map with Highlighted Top 5 Provinces by Foreign Tourism Revenue
+
+1.  **Base Map Plot**:
+
+    -   The plot is initiated using `ggplot()` with the `revenue_foreign` dataset, which contains data on foreign tourism revenue by province.
+
+    -   `geom_sf()` is used to plot the boundaries of all provinces, where the `fill` aesthetic is mapped to `total_value` (total foreign tourism revenue). The borders of the provinces are outlined in black with a thickness of `0.2`.
+
+    -   `facet_wrap(~ year)` divides the map into separate panels for each year, enabling year-to-year comparisons of foreign tourism revenue.
+
+2.  **Highlighting Top 5 Provinces**:
+
+    -   Another `geom_sf()` layer is added to highlight the top 5 provinces with the highest foreign tourism revenue in each year. The `top_n(5, total_value)` function selects the top 5 provinces based on the `total_value` column.
+
+    -   These top provinces are highlighted in red (`fill = "red"`) with a thicker black border (`size = 0.4`) to make them visually stand out.
+
+3.  **Color Scale for Other Provinces**:
+
+    -   The remaining provinces are colored using the `viridis` color scale with the `"plasma"` option, based on the total foreign tourism revenue. The color gradient is applied using `scale_fill_viridis_c()`, and the legend is labeled `"Total Tourists"` to represent the revenue scale.
+
+4.  **Titles and Labels**:
+
+    -   The `labs()` function adds a title, caption, and legend labels. The title indicates that the map shows foreign tourism revenue by province and year, with the top 5 provinces highlighted. The caption provides the source of the data as `"Your Dataset"`, and the fill scale is labeled `"Total Tourists"`.
+
+5.  **Clean Theme**:
+
+    -   A minimalistic theme is applied using `theme_minimal()` for a clean, simple visual appearance.
+
+    -   Additional theme customizations (`theme()`) remove axis text, ticks, grid lines, and the background (`element_blank()`), providing a clear and professional presentation.
+
+```{r}
+ggplot(revenue_foreign) +
+  geom_sf(aes(fill = total_value), color = "black", size = 0.2) +
+  facet_wrap(~ year) +
+  geom_sf(data = revenue_foreign %>%
+            group_by(year) %>%
+            top_n(5, total_value), 
+          aes(geometry = geometry), 
+          fill = "red", color = "black", size = 0.4) +
+  scale_fill_viridis_c(option = "plasma", name = "Total Tourists") +
+  labs(title = "revenue_foreign by Province and Year (Top 5 Highlighted)",
+       caption = "Source: Your Dataset",
+       fill = "Total Tourists") +
+  theme_minimal() +
+  theme(axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid = element_blank(),
+        panel.background = element_blank())
+```
+
+### Observations:
+
+1.  **2019-2021**: Foreign tourist revenue is concentrated in key provinces, especially in southern coastal regions and the capital area, as highlighted in red. There is a clear decline in revenue during 2020 and 2021 due to the pandemic, with fewer provinces showing high foreign tourist revenue.
+
+2.  **2022-2023**: The data shows a recovery in foreign tourist revenue, with similar key provinces returning as top earners, though the revenue levels have not yet returned to 2019 values.
+
+3.  **NA Data**: One year is marked as "NA," indicating missing data.
+
+### Analysis:
+
+1.  **Pandemic Impact**: The sharp decline in revenue from foreign tourists during 2020 and 2021 reflects the global restrictions on travel during the COVID-19 pandemic. These maps highlight the provinces most affected by the revenue drop.
+
+2.  **Recovery**: From 2022 onward, foreign tourist revenue shows signs of recovery, particularly in the major tourist provinces. These regions should be a focus for post-pandemic recovery strategies to boost foreign tourism and associated revenue.
+
+## 4.8 Plotting a Map with Highlighted Top 5 Provinces by Domestic Tourism Revenue (Thai Tourists)
+
+-   **Base Map Plot**:
+
+    -   The plot is initialized with `ggplot()` using the `revenue_thai` dataset, which contains data on the total tourism revenue generated by Thai tourists (domestic tourism) by province.
+
+    -   `geom_sf()` is used to plot the boundaries of all provinces, with the `fill` aesthetic representing the `total_value` (total revenue from Thai tourists). The provinces are outlined in black with a border size of `0.2`.
+
+    -   `facet_wrap(~ year)` creates separate panels for each year, allowing for year-by-year comparisons of domestic tourism revenue.
+
+-   **Highlighting Top 5 Provinces**:
+
+    -   Another `geom_sf()` layer is added to highlight the top 5 provinces with the highest domestic tourism revenue in each year. The `top_n(5, total_value)` function selects the top 5 provinces based on the `total_value` column.
+
+    -   These top provinces are highlighted in red (`fill = "red"`) with a thicker black border (`size = 0.4`), making them stand out.
+
+-   **Color Scale for Other Provinces**:
+
+    -   The remaining provinces are colored using the `viridis` color scale with the `"plasma"` option. This color gradient reflects the total revenue from domestic tourism across provinces. The color scale is applied using `scale_fill_viridis_c()`, and the legend is labeled `"Total Tourists"` to represent the revenue scale.
+
+-   **Titles and Labels**:
+
+    -   The `labs()` function adds titles and labels. The title indicates that the map shows revenue from domestic tourism by province and year, with the top 5 provinces highlighted. The caption provides the data source as `"Your Dataset"`, and the fill legend is labeled `"Total Tourists"`.
+
+-   **Clean Theme**:
+
+    -   A minimal theme is applied using `theme_minimal()` to give the map a clean and simple aesthetic.
+
+    -   Additional theme customizations remove axis text, ticks, grid lines, and the background using `element_blank()`, ensuring a neat and focused visual presentation.
+
+```{r}
+ggplot(revenue_thai) +
+  geom_sf(aes(fill = total_value), color = "black", size = 0.2) +
+  facet_wrap(~ year) +
+  geom_sf(data = revenue_thai %>%
+            group_by(year) %>%
+            top_n(5, total_value), 
+          aes(geometry = geometry), 
+          fill = "red", color = "black", size = 0.4) +
+  scale_fill_viridis_c(option = "plasma", name = "Total Tourists") +
+  labs(title = "revenue_thai by Province and Year (Top 5 Highlighted)",
+       caption = "Source: Your Dataset",
+       fill = "Total Tourists") +
+  theme_minimal() +
+  theme(axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid = element_blank(),
+        panel.background = element_blank())
+```
+
+### Observations:
+
+1.  **2019-2021**: Domestic tourist revenue is consistently highest in specific provinces (highlighted in red), with the peak in 2019. During 2020 and 2021, there is a decline in revenue across most provinces due to the pandemic, although some regions remain top earners.
+
+2.  **2022-2023**: There is a visible recovery in revenue from domestic tourism starting in 2022, with 2023 continuing the trend, although revenue levels have not fully reached pre-pandemic values.
+
+3.  **NA Data**: One year shows missing data (NA).
+
+### Analysis:
+
+1.  **Pandemic Effects**: Domestic tourism revenue fell in 2020-2021, though less drastically compared to foreign tourism, indicating that local tourism provided some resilience to the economy during the pandemic.
+
+2.  **Consistent Key Provinces**: Provinces that were top earners before the pandemic remain crucial for domestic tourism, which suggests these areas should be prioritized in strategies to boost local tourism revenue recovery.
+
+# 5. **Exploratory Spatial Data Analysis**
+
+## 5.1 Calculating Global Moran's I for Spatial Autocorrelation of Total Tourist Values
+
+-   **Data Cleaning**:
+
+    -   The data is filtered to retain only rows with valid (`finite`) `total_value` data. This ensures that the analysis only includes complete and meaningful observations related to total tourist values.
+
+-   **Converting Data to Spatial Format**:
+
+    -   The cleaned data is converted into a spatial data format using the `sf` (simple features) package, which is commonly used in R for handling spatial data.
+
+-   **Converting Geometries to Centroids**:
+
+    -   Since the geometries in the dataset are likely `MULTIPOLYGONS`, they are simplified by converting them into centroid points. Each polygon (such as a province) is represented by its center point to facilitate spatial analysis.
+
+-   **Creating a k-Nearest Neighbors (k-NN) Spatial Weights Matrix**:
+
+    -   A spatial weights matrix is constructed using a k-nearest neighbors (k-NN) approach. This matrix is based on the distances between the centroid points, with the parameter `k = 5` indicating that each point is linked to its five nearest neighbors.
+
+-   **Calculating Spatial Weights**:
+
+    -   The spatial weights matrix is calculated from the k-NN distances. These weights represent the strength of the spatial relationships between each region (province), based on proximity.
+
+-   **Global Moran's I Calculation**:
+
+    -   Moran’s I statistic is computed to assess whether regions with similar tourist values are spatially clustered. A positive Moran’s I indicates a clustering of similar values (e.g., provinces with high tourist numbers are near each other), while a negative value indicates spatial dispersion (e.g., high and low tourist numbers alternate).
+
+-   **Printing the Result**:
+
+    -   Finally, the result of the Moran's I calculation is printed, which quantifies the degree of spatial autocorrelation in the `total_value` variable.
+
+```{r}
+data_clean <- no_tourist_all %>%
+  filter(is.finite(total_value))
+
+data_sf <- st_as_sf(data_clean)
+
+data_sf_centroid <- data_sf %>% mutate(geometry = st_centroid(geometry))
+
+nb_dist <- st_knn(data_sf_centroid, k = 5)
+
+wt_dist <- st_weights(nb_dist)
+
+moran <- global_moran(x = data_sf_centroid$total_value, nb = nb_dist, wt = wt_dist)
+
+print(moran)
+```
+
+### Observations:
+
+1.  **Moran's I Value (0.4268961)**: The positive value indicates that there is a moderate level of spatial autocorrelation in the data. This suggests that provinces with high or low tourist counts are spatially clustered, meaning that nearby provinces tend to have similar tourist numbers.
+
+2.  **Z-Score (\$K = 114.7938\$)**: This Z-score is extremely high, indicating a statistically significant spatial pattern. The tourist data is not randomly distributed but shows a strong spatial dependency.
+
+### Analysis:
+
+1.  **Spatial Clustering**: Provinces with high tourist numbers tend to be clustered together, and the same is true for provinces with low tourist numbers. This could be due to regional tourist attractions and infrastructure being concentrated in specific areas.
+
+2.  **Tourism Strategy**: For policymakers, this spatial autocorrelation suggests that efforts to boost tourism should focus on regions rather than individual provinces, as improvements in one province could have a positive effect on neighboring areas.
+
+## 5.2 Calculating Global Moran's I for Spatial Autocorrelation of Foreign Tourist Values
+
+-   **Data Cleaning**:
+
+    -   The dataset `no_tourist_foreign` is filtered to retain only rows with valid (`finite`) `total_value` entries. This ensures that only complete and meaningful data is included in the analysis, which focuses on foreign tourist numbers.
+
+-   **Converting Data to an sf Object**:
+
+    -   The cleaned dataset is then converted into a simple features (`sf`) object. This conversion allows the data to be treated as spatial data, necessary for the spatial analysis that follows.
+
+-   **Converting Geometries to Centroids**:
+
+    -   Since the original geometries are likely `MULTIPOLYGONS`, they are converted into centroid points using `st_centroid()`. Each polygon is represented by a single point, its centroid, simplifying spatial calculations.
+
+-   **Creating a k-Nearest Neighbors Spatial Weights Matrix**:
+
+    -   A spatial weights matrix is constructed using the k-nearest neighbors (k-NN) approach. Here, `k = 5` specifies that each centroid is connected to its five nearest neighboring centroids. This matrix defines the spatial relationships between provinces based on their proximity.
+
+-   **Calculating Spatial Weights**:
+
+    -   Using the k-NN matrix, spatial weights are calculated. These weights represent the strength of spatial relationships based on the distance between neighboring centroids.
+
+-   **Calculating Global Moran’s I**:
+
+    -   Moran's I is calculated using the `global_moran()` function, with the foreign tourist `total_value` as the response variable. The Moran’s I statistic indicates whether there is a spatial autocorrelation in foreign tourist activity. A positive value suggests clustering, while a negative value suggests spatial dispersion.
+
+-   **Printing the Result**:
+
+    -   The result of the Moran’s I calculation is printed to assess the degree of spatial correlation for foreign tourist data across regions.
+
+```{r}
+data_clean <- no_tourist_foreign %>%
+  filter(is.finite(total_value))
+
+data_sf <- st_as_sf(data_clean)
+
+data_sf_centroid <- data_sf %>% mutate(geometry = st_centroid(geometry))
+
+nb_dist <- st_knn(data_sf_centroid, k = 5)
+
+wt_dist <- st_weights(nb_dist)
+
+moran <- global_moran(x = data_sf_centroid$total_value, nb = nb_dist, wt = wt_dist)
+
+print(moran)
+```
+
+### Observations:
+
+1.  **Moran's I Value (0.3182537)**: This positive value indicates that there is spatial autocorrelation in the foreign tourist data, but it is weaker than the previous dataset (0.4269). This suggests that there is still a tendency for provinces with similar foreign tourist counts to cluster together, but the clustering is not as strong as for overall tourists.
+
+2.  **Z-Score (\$K = 155.355\$)**: This Z-score is even higher than the previous analysis, indicating a very strong statistical significance. The spatial clustering pattern is highly non-random.
+
+### Analysis:
+
+1.  **Spatial Clustering of Foreign Tourists**: There is some clustering of foreign tourist activity in specific regions, but it is less pronounced than the overall tourist data. This might indicate that while certain regions attract both domestic and foreign tourists, foreign tourists are slightly more dispersed across the provinces.
+
+2.  **Strategic Insights**: Since foreign tourists are somewhat clustered but more spatially distributed compared to overall tourists, tourism development strategies for attracting foreign visitors could benefit from diversifying and expanding into regions outside of the traditional tourist hubs.
+
+## 5.3 Calculating Global Moran's I for Spatial Autocorrelation of Tourist Stays
+
+-   **Data Cleaning**:
+
+    -   The data is filtered to retain only rows where the `total_value` (number of tourists who stay) is finite. This ensures that only valid data points are included in the subsequent spatial analysis.
+
+-   **Converting Data to sf Object**:
+
+    -   The cleaned dataset is converted into an `sf` (simple features) object, enabling the application of spatial operations and analysis.
+
+-   **Converting Geometries to Centroids**:
+
+    -   Since the dataset contains `MULTIPOLYGON` geometries, each province is represented by its centroid (a single point), using the `st_centroid()` function. This simplifies the spatial representation and is more suitable for distance-based spatial analysis.
+
+-   **Creating a k-Nearest Neighbors (k-NN) Spatial Weights Matrix**:
+
+    -   A k-nearest neighbors (k-NN) spatial weights matrix is created, where `k = 5` indicates that each province (represented by its centroid) is linked to its five nearest neighbors. This matrix defines the spatial relationships between provinces based on proximity.
+
+-   **Calculating Spatial Weights**:
+
+    -   Using the spatial weights matrix (`nb_dist`), spatial weights are computed, which quantify the strength of the spatial relationships between neighboring provinces.
+
+-   **Calculating Global Moran's I**:
+
+    -   The `global_moran()` function is used to calculate Moran’s I for the `total_value` (number of tourists staying) variable. Moran's I measures the spatial autocorrelation: a positive value suggests clustering (provinces with similar numbers of tourist stays are near each other), while a negative value indicates dispersion (provinces with dissimilar numbers of tourist stays are near each other).
+
+-   **Printing the Result**:
+
+    -   The final result, the Moran’s I statistic, is printed. This statistic provides insight into whether spatial patterns exist in the distribution of tourist stays across provinces.
+
+```{r}
+data_clean <- no_tourist_stay %>%
+  filter(is.finite(total_value))
+
+data_sf <- st_as_sf(data_clean)
+
+data_sf_centroid <- data_sf %>% mutate(geometry = st_centroid(geometry))
+
+nb_dist <- st_knn(data_sf_centroid, k = 5)
+
+wt_dist <- st_weights(nb_dist)
+
+moran <- global_moran(x = data_sf_centroid$total_value, nb = nb_dist, wt = wt_dist)
+
+print(moran)
+```
+
+### Observations:
+
+1.  **Moran's I Value (0.3636701)**: The positive value suggests that there is a moderate level of spatial autocorrelation in the number of tourist stays. This implies that provinces with similar numbers of tourist stays tend to be spatially clustered.
+
+2.  **Z-Score (\$K = 115.8772\$)**: This Z-score is quite high, indicating strong statistical significance. This confirms that the spatial pattern of tourist stays is non-random and that nearby provinces exhibit similar tourist stay behaviors.
+
+### Analysis:
+
+1.  **Spatial Clustering**: The moderate Moran's I value suggests that provinces with high or low numbers of tourist stays are clustered. These clusters could be indicative of key tourism regions that are popular for overnight stays, likely due to their infrastructure or attractions.
+
+2.  **Tourism Strategy**: Since tourist stays are clustered, expanding tourism infrastructure or marketing to nearby provinces may capitalize on existing tourist flows. Provinces that neighbor high-stay regions could attract more visitors by improving accommodations or promoting longer stays.
+
+## 5.4 Calculating Global Moran's I for Spatial Autocorrelation of Domestic Tourists (Thai Tourists)
+
+-   **Data Cleaning**:
+
+    -   The dataset `no_tourist_thai` is filtered to retain only rows where the `total_value` (number of Thai tourists) is finite. This step ensures that invalid or missing data is removed before proceeding with the spatial analysis.
+
+-   **Converting Data to sf Object**:
+
+    -   The cleaned dataset is converted into a simple features (`sf`) object using the `st_as_sf()` function. This conversion is necessary for conducting spatial analysis, as it treats the data as geographical information.
+
+-   **Converting Geometries to Centroids**:
+
+    -   Since the original geometries are `MULTIPOLYGONS` (e.g., province boundaries), they are simplified by converting each polygon to its centroid using `st_centroid()`. This transformation reduces the geometries to a single point, allowing for more straightforward distance-based spatial analysis.
+
+-   **Creating a k-Nearest Neighbors (k-NN) Spatial Weights Matrix**:
+
+    -   A spatial weights matrix is created using a k-nearest neighbors approach. The matrix is constructed such that each centroid is linked to its five nearest neighbors (`k = 5`). This defines the spatial relationships between the provinces based on proximity.
+
+-   **Calculating Spatial Weights**:
+
+    -   The spatial weights are calculated from the k-NN matrix using the `st_weights()` function. These weights represent the strength of spatial relationships between neighboring provinces based on the k-nearest neighbors.
+
+-   **Calculating Global Moran’s I**:
+
+    -   Moran’s I is computed using the `global_moran()` function. The `total_value` variable, representing the number of Thai tourists, is passed to the function along with the spatial weights and the k-NN matrix. Moran’s I provides a measure of spatial autocorrelation: positive values indicate clustering (provinces with similar numbers of tourists are near each other), while negative values suggest dispersion (provinces with dissimilar numbers of tourists are near each other).
+
+-   **Printing the Result**:
+
+    -   Finally, the result of the Moran’s I calculation is printed, allowing for the interpretation of spatial autocorrelation in domestic tourism data.
+
+```{r}
+data_clean <- no_tourist_thai %>%
+  filter(is.finite(total_value))
+
+data_sf <- st_as_sf(data_clean)
+
+data_sf_centroid <- data_sf %>% mutate(geometry = st_centroid(geometry))
+
+nb_dist <- st_knn(data_sf_centroid, k = 5)
+
+wt_dist <- st_weights(nb_dist)
+
+moran <- global_moran(x = data_sf_centroid$total_value, nb = nb_dist, wt = wt_dist)
+
+print(moran)
+```
+
+### Observations:
+
+1.  **Moran's I Value (0.4700614)**: The positive value of Moran's I indicates a moderate to high level of spatial autocorrelation. This means that provinces with similar Thai tourist numbers (high or low) tend to cluster spatially, showing stronger spatial dependence than other datasets you've analyzed.
+
+2.  **Z-Score (\$K = 76.83119\$)**: The Z-score is lower compared to previous analyses, but it still shows strong statistical significance, confirming that the observed spatial pattern of Thai tourist distribution is not random.
+
+### Analysis:
+
+1.  **Spatial Clustering of Thai Tourists**: The stronger spatial autocorrelation for domestic (Thai) tourists suggests that provinces with similar tourist numbers are more likely to be geographically close. This could be due to regional preferences for domestic travel, as tourists may prefer certain areas for proximity or cultural familiarity.
+
+2.  **Tourism Strategy**: The strong clustering suggests that expanding tourism development in provinces adjacent to high-tourism areas may encourage domestic tourists to explore neighboring regions. Focusing efforts on less-visited provinces near popular tourist hubs could help distribute the tourism flow more evenly across the country.
+
+## 5.5 Calculating Global Moran's I for Spatial Autocorrelation of Total Tourism Revenue
+
+-   **Data Cleaning**:
+
+    -   The dataset `revenue_all` is filtered to retain only rows where the `total_value` (representing total tourism revenue) is finite. This ensures that only valid data points are used for the spatial analysis.
+
+-   **Converting Data to an sf Object**:
+
+    -   The cleaned data is then converted into a simple features (`sf`) object using `st_as_sf()`. This transformation enables spatial operations, as the data is now treated as geographical information.
+
+-   **Converting Geometries to Centroids**:
+
+    -   The original `MULTIPOLYGON` geometries (e.g., provincial boundaries) are converted into centroid points using `st_centroid()`. This conversion simplifies the spatial representation by reducing each polygon to a single representative point.
+
+-   **Creating a k-Nearest Neighbors (k-NN) Spatial Weights Matrix**:
+
+    -   A k-nearest neighbors (k-NN) spatial weights matrix is constructed, with each centroid linked to its five nearest neighbors (`k = 5`). This matrix establishes spatial relationships between neighboring provinces.
+
+-   **Calculating Spatial Weights**:
+
+    -   Spatial weights are calculated based on the k-NN matrix using the `st_weights()` function. These weights quantify the spatial relationships between neighboring provinces.
+
+-   **Calculating Global Moran’s I**:
+
+    -   Moran's I is computed using the `global_moran()` function. The `total_value` variable, representing the total tourism revenue, is passed to the function along with the spatial weights and k-NN matrix. Moran’s I indicates spatial autocorrelation: a positive value suggests clustering (provinces with similar revenue are near each other), while a negative value indicates spatial dispersion (provinces with differing revenue are near each other).
+
+-   **Printing the Result**:
+
+    -   The result of Moran's I calculation is printed, providing a measure of the spatial autocorrelation in the total tourism revenue data.
+
+```{r}
+data_clean <- revenue_all %>%
+  filter(is.finite(total_value)) 
+
+data_sf <- st_as_sf(data_clean)
+
+data_sf_centroid <- data_sf %>% mutate(geometry = st_centroid(geometry))
+
+nb_dist <- st_knn(data_sf_centroid, k = 5)
+
+wt_dist <- st_weights(nb_dist)
+
+moran <- global_moran(x = data_sf_centroid$total_value, nb = nb_dist, wt = wt_dist)
+
+print(moran)
+```
+
+### Observations:
+
+1.  **Moran's I Value (0.2947111)**: This value suggests a positive but relatively weak level of spatial autocorrelation. While there is some clustering of similar revenue values (high or low), it is less pronounced than in other datasets.
+
+2.  **Z-Score (\$K = 174.8506\$)**: The Z-score is extremely high, confirming that the observed spatial pattern is statistically significant and highly unlikely to be random.
+
+### Analysis:
+
+1.  **Weaker Clustering of Tourism Revenue**: The weaker Moran's I value implies that tourism revenue is more dispersed across provinces, meaning that high-revenue provinces may not be as spatially clustered as tourist numbers. This could reflect varying levels of spending by tourists across different regions.
+
+2.  **Targeting High Revenue Areas**: Although there is less spatial clustering, certain regions still exhibit strong tourist spending patterns. Tourism strategies could focus on understanding why some high-tourist-number regions generate lower revenues and look for ways to increase tourist spending in those areas.
+
+## 5.6 Calculating Global Moran's I for Spatial Autocorrelation of Foreign Tourism Revenue
+
+-   **Data Cleaning**:
+
+    -   The dataset `revenue_foreign` is filtered to retain only rows with finite (`total_value`), ensuring that only valid observations of foreign tourism revenue are included in the analysis.
+
+-   **Converting Data to sf Object**:
+
+    -   The cleaned dataset is converted into an `sf` (simple features) object using `st_as_sf()`. This transformation enables spatial analysis, as the data is treated as geographical information.
+
+-   **Converting Geometries to Centroids**:
+
+    -   Since the original geometries are `MULTIPOLYGONS` (e.g., provincial boundaries), they are converted into centroids using `st_centroid()`. This conversion simplifies the spatial data by representing each polygon as a single point.
+
+-   **Creating a k-Nearest Neighbors (k-NN) Spatial Weights Matrix**:
+
+    -   A k-nearest neighbors spatial weights matrix is created using the `st_knn()` function, where each centroid is linked to its five nearest neighbors (`k = 5`). This matrix defines the spatial relationships between provinces based on proximity.
+
+-   **Calculating Spatial Weights**:
+
+    -   The spatial weights are calculated from the k-NN matrix using the `st_weights()` function. These weights quantify the spatial relationships between neighboring provinces.
+
+-   **Calculating Global Moran’s I**:
+
+    -   Moran's I is calculated using the `global_moran()` function, with the `total_value` variable (foreign tourism revenue) passed to the function along with the spatial weights and the k-NN matrix. Moran's I indicates the degree of spatial autocorrelation: a positive value suggests clustering (provinces with similar foreign tourism revenue are near each other), while a negative value indicates dispersion (provinces with differing revenue are near each other).
+
+-   **Printing the Result**:
+
+    -   The result of the Moran’s I calculation is printed, providing insight into the spatial autocorrelation of foreign tourism revenue.
+
+```{r}
+
+data_clean <- revenue_foreign %>%
+  filter(is.finite(total_value)) 
+
+data_sf <- st_as_sf(data_clean)
+
+data_sf_centroid <- data_sf %>% mutate(geometry = st_centroid(geometry))
+
+nb_dist <- st_knn(data_sf_centroid, k = 5)
+
+wt_dist <- st_weights(nb_dist)
+
+moran <- global_moran(x = data_sf_centroid$total_value, nb = nb_dist, wt = wt_dist)
+
+print(moran)
+```
+
+### Observations:
+
+1.  **Moran's I Value (0.27495)**: This value indicates a weak positive spatial autocorrelation. It suggests that provinces with similar foreign tourist revenues tend to cluster, but the clustering is not very strong.
+
+2.  **Z-Score (\$K = 152.6115\$)**: Despite the weak Moran's I value, the Z-score is high, indicating that the observed spatial pattern is statistically significant and not random.
+
+### Analysis:
+
+1.  **Weak Clustering of Foreign Tourist Revenue**: The weak Moran's I suggests that foreign tourist revenue is more spatially dispersed, meaning high-revenue provinces are not strongly concentrated in specific regions. Foreign tourists may be spending more evenly across different provinces, or revenue patterns could be influenced by factors such as tourist length of stay, spending habits, or regional tourist attractions.
+
+2.  **Strategic Focus**: Although clustering is weak, it still exists. This means that certain regions attract higher foreign tourist spending and could be prioritized for infrastructure improvements or marketing campaigns to boost revenue further. Additionally, understanding why some regions with high tourist numbers generate less revenue could reveal areas for development.
+
+## 5.7 Calculating Global Moran's I for Spatial Autocorrelation of Domestic Tourism Revenue (Thai Tourists)
+
+-   **Data Cleaning**:
+
+    -   The dataset `revenue_thai` is filtered to retain only rows with valid (`finite`) `total_value`, which represents domestic tourism revenue. This ensures that only complete data points are included in the analysis.
+
+-   **Converting Data to an sf Object**:
+
+    -   The cleaned data is converted into an `sf` (simple features) object using `st_as_sf()`. This transformation allows the data to be used for spatial analysis.
+
+-   **Converting Geometries to Centroids**:
+
+    -   The geometries in the dataset are likely `MULTIPOLYGONS`, representing provincial boundaries. These are simplified by converting them to centroid points using `st_centroid()`, which reduces each polygon to a single representative point.
+
+-   **Creating a k-Nearest Neighbors (k-NN) Spatial Weights Matrix**:
+
+    -   A k-nearest neighbors spatial weights matrix is created using `st_knn()`, where each centroid is linked to its five nearest neighbors (`k = 5`). This matrix defines the spatial relationships between provinces based on proximity.
+
+-   **Calculating Spatial Weights**:
+
+    -   The spatial weights are calculated from the k-NN matrix using `st_weights()`. These weights quantify the spatial relationships between neighboring provinces based on distance.
+
+-   **Calculating Global Moran’s I**:
+
+    -   Moran's I is calculated using the `global_moran()` function, with the `total_value` (domestic tourism revenue) passed as the response variable. The spatial weights and k-NN matrix are also included. Moran's I provides insight into the degree of spatial autocorrelation: a positive value indicates clustering (provinces with similar revenue are near each other), while a negative value indicates spatial dispersion (provinces with dissimilar revenue are near each other).
+
+-   **Printing the Result**:
+
+    -   The result of the Moran’s I calculation is printed, showing whether there is spatial clustering or dispersion in domestic tourism revenue across provinces.
+
+```{r}
+data_clean <- revenue_thai %>%
+  filter(is.finite(total_value)) 
+
+
+data_sf <- st_as_sf(data_clean)
+
+data_sf_centroid <- data_sf %>% mutate(geometry = st_centroid(geometry))
+
+nb_dist <- st_knn(data_sf_centroid, k = 5)
+
+wt_dist <- st_weights(nb_dist)
+
+moran <- global_moran(x = data_sf_centroid$total_value, nb = nb_dist, wt = wt_dist)
+
+print(moran)
+```
+
+### Observations:
+
+1.  **Moran's I Value (0.3428837)**: This value suggests a moderate level of positive spatial autocorrelation. Provinces with similar levels of Thai tourist revenue are moderately clustered, indicating that areas with high or low revenue tend to be geographically close.
+
+2.  **Z-Score (\$K = 175.4336\$)**: The high Z-score confirms that the observed spatial pattern is statistically significant and unlikely to be random.
+
+### Analysis:
+
+1.  **Moderate Clustering of Thai Tourist Revenue**: The moderate Moran's I indicates that provinces generating similar levels of revenue from domestic tourists tend to cluster. This could be due to cultural or geographic factors that make certain regions more appealing to Thai tourists, or it may reflect infrastructure and accessibility that influence spending patterns.
+
+2.  **Regional Focus for Domestic Tourism**: Since there is moderate clustering, regional tourism strategies can focus on enhancing the experience in neighboring provinces of high-revenue areas to encourage greater domestic tourism. Understanding which regions drive the most revenue from Thai tourists and why can help distribute tourism benefits more evenly.
+
+# 6. **Global Spatial Autocorrelation**
+
+The code snippets provided conduct Local Moran's I analysis (LISA) for various tourism-related and revenue-related datasets, including the number of tourists (total, foreign, stay, Thai) and tourism revenue (total, foreign, and Thai). Local Moran's I helps identify spatial clustering (hotspots and cold spots) and outliers at the province level for each dataset. Here’s a breakdown of the key steps:
+
+1.  **Data Preparation**:
+
+    -   The `filter(is.finite(total_value))` function is applied to each dataset to clean it by removing rows with missing or non-finite values in the `total_value` column.
+
+    -   The cleaned datasets are then converted into `sf` (simple features) objects using `st_as_sf()`, allowing spatial operations on the geometries.
+
+2.  **Geometries to Centroids and Jittering**:
+
+    -   Each MULTIPOLYGON geometry (such as provincial boundaries) is simplified by converting it into its centroid using `st_centroid()`. This makes spatial analysis easier as each region is represented by a single point.
+
+    -   `st_jitter()` is applied to slightly move the centroids to avoid any spatial overlap and to improve spatial distance calculations.
+
+3.  **Creating Spatial Weights Matrix**:
+
+    -   A k-nearest neighbors (k-NN) approach is used to construct a spatial weights matrix (`k = 5`), which defines the relationships between neighboring provinces based on proximity. The `knearneigh()` function calculates the nearest neighbors, and `nb2listw()` converts these into spatial weights.
+
+4.  **Local Moran’s I Calculation**:
+
+    -   Local Moran’s I is computed using the `localmoran()` function, which calculates the degree of spatial autocorrelation for each province based on its neighbors. Moran’s I values indicate whether a province and its neighbors have similar or dissimilar values.
+
+        -   A **positive Moran’s I** indicates that a province is spatially surrounded by neighbors with similar values (either all high or all low), indicating clustering.
+
+        -   A **negative Moran’s I** indicates that the province is surrounded by neighbors with dissimilar values, identifying spatial outliers.
+
+5.  **Storing and Visualizing Moran’s I Results**:
+
+    -   The computed Moran’s I values and their corresponding p-values (statistical significance) are stored in the `local_moran_I` and `local_moran_p` columns of the `sf` object.
+
+    -   The spatial results are visualized using `ggplot2`, where `geom_sf()` is used to plot provinces, colored by the value of Local Moran’s I. A `viridis` color scale is applied to highlight the clustering intensity.
+
+6.  **Formatted Results**:
+
+    -   For each analysis, the formatted results of the Moran’s I statistics are output using `printCoefmat()`, providing a detailed statistical summary of the local Moran’s I values for each province, ordered by province name.
+
+### Datasets Analyzed:
+
+-   **Tourist Numbers**:
+
+    -   `no_tourist_all`: Total number of tourists.
+
+    -   `no_tourist_foreign`: Number of foreign tourists.
+
+    -   `no_tourist_stay`: Number of tourists staying in the province.
+
+    -   `no_tourist_thai`: Number of Thai (domestic) tourists.
+
+-   **Tourism Revenue**:
+
+    -   `revenue_all`: Total tourism revenue.
+
+    -   `revenue_foreign`: Revenue from foreign tourists.
+
+    -   `revenue_thai`: Revenue from domestic (Thai) tourists.
+
+```{r}
+data_clean <- no_tourist_all %>%
+  filter(is.finite(total_value)) 
+
+
+data_sf <- st_as_sf(data_clean)
+
+data_sf_centroid <- data_sf %>%
+  mutate(geometry = st_centroid(geometry)) %>%
+  mutate(geometry = st_jitter(geometry, amount = 0.001)) 
+
+coords <- st_coordinates(data_sf_centroid) 
+nb_dist <- knearneigh(coords, k = 5) %>% knn2nb() 
+listw <- nb2listw(nb_dist)  
+
+local_moran <- localmoran(data_sf_centroid$total_value, listw)
+
+data_sf_centroid$local_moran_I <- local_moran[, 1] 
+data_sf_centroid$local_moran_p <- local_moran[, 5]
+
+ggplot(data_sf_centroid) +
+  geom_sf(aes(fill = local_moran_I), color ="black") +
+  scale_fill_viridis_c(option = "C") +
+  theme_minimal() +
+  labs(title = "Local Moran's I (LISA)", fill = "Local Moran's I")
+data_clean <- no_tourist_all %>%
+  filter(is.finite(total_value)) 
+
+data_sf <- st_as_sf(data_clean)
+
+data_sf_centroid <- data_sf %>% mutate(geometry = st_centroid(geometry))
+
+fips <- order(data_sf_centroid$province_eng)
+
+coords <- st_coordinates(data_sf_centroid)  
+nb_dist <- knearneigh(coords, k = 5) %>% knn2nb()  
+listw <- nb2listw(nb_dist) 
+
+localMI <- localmoran(data_sf_centroid$total_value, listw)
+
+formatted_results <- data.frame(
+  localMI[fips,],
+  row.names = make.unique(as.character(data_sf_centroid$province_eng[fips]))
+)
+
+printCoefmat(formatted_results)
+```
+
+### Observations:
+
+1.  **Local Moran’s I (LISA) Map**:
+
+    -   The color scale represents the **Local Moran’s I** values, where higher values (in yellow) indicate strong local clustering of similar values (either high-high or low-low), while lower values (in purple) show weak clustering or even outliers (high-low or low-high clusters).
+
+    -   The geographic points represent the centroids of provinces, and their color corresponds to the degree of local spatial autocorrelation.
+
+2.  **Geographic Clusters**:
+
+    -   Some regions have stronger clustering (yellow areas), indicating that provinces in these areas have tourist counts that are highly correlated with their neighbors (either positively or negatively).
+
+    -   Conversely, purple areas represent provinces where tourist values do not align as strongly with neighboring provinces, potentially signifying spatial outliers.
+
+### Analysis:
+
+1.  **High-High and Low-Low Clusters**: The yellow-colored provinces are areas where either high tourist numbers are clustered with other high-value provinces or low tourist numbers are clustered with similarly low-value provinces. This clustering is important for identifying regions with concentrated tourism demand or underdeveloped tourism potential.
+
+2.  **Potential Outliers**: Purple-colored areas suggest provinces that behave differently compared to their neighbors. For instance, a province with low tourist numbers surrounded by provinces with high tourist numbers, or vice versa, could signal areas that require targeted tourism policies.
+
+### Strategic Implications:
+
+-   **Tourism Development**: The clusters identified by Local Moran’s I can help policymakers focus on developing regions with either high or low tourist numbers, especially those showing strong local clustering.
+
+-   **Outliers and Policy Focus**: Outlier regions (purple areas) may need specific interventions or support to either boost tourism or better integrate them with neighboring tourist hubs.
+
+```{r}
+data_clean <- no_tourist_foreign %>%
+  filter(is.finite(total_value))
+
+data_sf <- st_as_sf(data_clean)
+
+data_sf_centroid <- data_sf %>%
+  mutate(geometry = st_centroid(geometry)) %>%
+  mutate(geometry = st_jitter(geometry, amount = 0.001))  
+
+coords <- st_coordinates(data_sf_centroid)  
+nb_dist <- knearneigh(coords, k = 5) %>% knn2nb()  
+listw <- nb2listw(nb_dist) 
+
+local_moran <- localmoran(data_sf_centroid$total_value, listw)
+
+data_sf_centroid$local_moran_I <- local_moran[, 1] 
+data_sf_centroid$local_moran_p <- local_moran[, 5]  
+
+ggplot(data_sf_centroid) +
+  geom_sf(aes(fill = local_moran_I), color = "black") +
+  scale_fill_viridis_c(option = "C") +
+  theme_minimal() +
+  labs(title = "Local Moran's I (LISA)", fill = "Local Moran's I")
+
+data_clean <- no_tourist_all %>%
+  filter(is.finite(total_value))  
+
+data_sf <- st_as_sf(data_clean)
+
+data_sf_centroid <- data_sf %>% mutate(geometry = st_centroid(geometry))
+
+fips <- order(data_sf_centroid$province_eng)
+
+coords <- st_coordinates(data_sf_centroid)  
+nb_dist <- knearneigh(coords, k = 5) %>% knn2nb() 
+listw <- nb2listw(nb_dist) 
+
+localMI <- localmoran(data_sf_centroid$total_value, listw)
+
+formatted_results <- data.frame(
+  localMI[fips,],
+  row.names = make.unique(as.character(data_sf_centroid$province_eng[fips]))
+)
+
+printCoefmat(formatted_results)
+```
+
+### Observations:
+
+1.  **Local Moran’s I Map**:
+
+    -   The plot visualizes Local Moran’s I, where the color scale indicates the level of spatial autocorrelation. The higher values (in yellow) represent provinces with stronger clustering of similar foreign tourist numbers (either high-high or low-low), while lower values (in purple) show weaker spatial autocorrelation or potential outliers.
+
+    -   The points represent provincial centroids, and their color corresponds to the strength of local clustering for foreign tourists.
+
+2.  **Geographical Clusters**:
+
+    -   The higher values (yellow) indicate areas where provinces with similar foreign tourist numbers are clustered. These areas could represent key tourist hubs where foreign tourist activity is either consistently high or low across neighboring regions.
+
+### Analysis:
+
+1.  **Clusters of High and Low Foreign Tourists**:
+
+    -   The yellow-colored provinces represent high-high or low-low clusters, suggesting that neighboring provinces share similar patterns in foreign tourist numbers. This clustering highlights important regions that might either be central to foreign tourism or underdeveloped in attracting foreign visitors.
+
+2.  **Strategic Implications**:
+
+    -   Identifying clusters helps in making strategic decisions for tourism policies. Areas with high tourist clustering may benefit from further investment, while those with low clustering could indicate untapped potential.
+
+    -   Provinces with weak clustering (purple) or spatial outliers might need unique approaches to better integrate them with the broader tourism network.
+
+```{r}
+data_clean <- no_tourist_stay %>%
+  filter(is.finite(total_value)) 
+
+data_sf <- st_as_sf(data_clean)
+
+data_sf_centroid <- data_sf %>%
+  mutate(geometry = st_centroid(geometry)) %>%
+  mutate(geometry = st_jitter(geometry, amount = 0.001))  
+
+coords <- st_coordinates(data_sf_centroid)  
+nb_dist <- knearneigh(coords, k = 5) %>% knn2nb()  
+listw <- nb2listw(nb_dist)  
+
+local_moran <- localmoran(data_sf_centroid$total_value, listw)
+
+data_sf_centroid$local_moran_I <- local_moran[, 1]  
+data_sf_centroid$local_moran_p <- local_moran[, 5]  
+
+ggplot(data_sf_centroid) +
+  geom_sf(aes(fill = local_moran_I), color = "black") +
+  scale_fill_viridis_c(option = "C") +
+  theme_minimal() +
+  labs(title = "Local Moran's I (LISA)", fill = "Local Moran's I")
+
+data_clean <- no_tourist_all %>%
+  filter(is.finite(total_value)) 
+
+data_sf <- st_as_sf(data_clean)
+
+data_sf_centroid <- data_sf %>% mutate(geometry = st_centroid(geometry))
+
+fips <- order(data_sf_centroid$province_eng)
+
+coords <- st_coordinates(data_sf_centroid)  
+nb_dist <- knearneigh(coords, k = 5) %>% knn2nb()  
+listw <- nb2listw(nb_dist)  
+
+localMI <- localmoran(data_sf_centroid$total_value, listw)
+
+formatted_results <- data.frame(
+  localMI[fips,],
+  row.names = make.unique(as.character(data_sf_centroid$province_eng[fips]))
+)
+
+printCoefmat(formatted_results)
+```
+
+### Observations:
+
+1.  **Local Moran's I Map**:
+
+    -   The color scale indicates Local Moran’s I values. Higher values (yellow) suggest stronger spatial clustering of similar tourist stay counts, while lower values (purple) indicate weaker clustering or potential spatial outliers.
+
+    -   The dots represent the centroids of provinces, with color shading indicating the strength of local autocorrelation based on tourist stays.
+
+2.  **Geographical Patterns**:
+
+    -   Areas with high values of Local Moran's I (yellow) signify clusters where similar numbers of tourists are staying overnight in neighboring provinces. This could indicate either high-high or low-low clustering.
+
+    -   Regions with lower values (purple) suggest provinces where the number of overnight stays is not closely aligned with their neighbors, potentially identifying spatial outliers.
+
+### Analysis:
+
+1.  **Tourist Stay Clusters**: The clustering identified by high Local Moran’s I values shows that certain regions share similar tourist stay patterns. These regions may have well-developed tourism infrastructure or appeal, making them popular for overnight stays.
+
+2.  **Strategic Focus**: Provinces with weak clustering or spatial outliers (purple areas) may benefit from targeted interventions, such as improving tourist accommodation, marketing strategies, or tourism infrastructure, to better integrate them with neighboring tourist hubs.
+
+```{r}
+data_clean <- no_tourist_thai %>%
+  filter(is.finite(total_value))  
+
+data_sf <- st_as_sf(data_clean)
+
+data_sf_centroid <- data_sf %>%
+  mutate(geometry = st_centroid(geometry)) %>%
+  mutate(geometry = st_jitter(geometry, amount = 0.001))
+
+coords <- st_coordinates(data_sf_centroid)  
+nb_dist <- knearneigh(coords, k = 5) %>% knn2nb()  
+listw <- nb2listw(nb_dist)  
+
+local_moran <- localmoran(data_sf_centroid$total_value, listw)
+
+data_sf_centroid$local_moran_I <- local_moran[, 1]
+data_sf_centroid$local_moran_p <- local_moran[, 5]  
+
+ggplot(data_sf_centroid) +
+  geom_sf(aes(fill = local_moran_I), color = "black") +
+  scale_fill_viridis_c(option = "C") +
+  theme_minimal() +
+  labs(title = "Local Moran's I (LISA)", fill = "Local Moran's I")
+data_clean <- no_tourist_all %>%
+  filter(is.finite(total_value)) 
+
+data_sf <- st_as_sf(data_clean)
+
+data_sf_centroid <- data_sf %>% mutate(geometry = st_centroid(geometry))
+
+fips <- order(data_sf_centroid$province_eng)
+
+coords <- st_coordinates(data_sf_centroid)  
+nb_dist <- knearneigh(coords, k = 5) %>% knn2nb()  
+listw <- nb2listw(nb_dist) 
+
+localMI <- localmoran(data_sf_centroid$total_value, listw)
+
+formatted_results <- data.frame(
+  localMI[fips,],
+  row.names = make.unique(as.character(data_sf_centroid$province_eng[fips]))
+)
+
+printCoefmat(formatted_results)
+```
+
+### Observations:
+
+1.  **Local Moran’s I Map**:
+
+    -   The color scale on the right shows the magnitude of Local Moran’s I. Yellow areas represent higher values, indicating stronger spatial autocorrelation (either high-high or low-low clusters), while purple areas show weaker autocorrelation or potential spatial outliers.
+
+    -   The points represent the centroids of the provinces, and their color reflects the degree of local spatial autocorrelation based on the tourist numbers of Thai tourists.
+
+2.  **Geographical Patterns**:
+
+    -   Regions with high Local Moran’s I values (yellow) indicate provinces that cluster with neighbors having similar tourist activity (either high tourist numbers or low tourist numbers).
+
+    -   Lower values (purple) suggest areas with less spatial clustering, which might highlight provinces behaving differently from their neighbors in terms of Thai tourist numbers.
+
+### Analysis:
+
+1.  **Clustering of Thai Tourist Numbers**:
+
+    -   High Moran’s I values (yellow) signify areas where either high or low tourist numbers are spatially clustered. This may suggest well-developed tourism in some areas or a concentration of low tourist activity in other areas.
+
+    -   Identifying these clusters can help target regions for tourism development or support, depending on the local tourism trends.
+
+2.  **Outliers and Strategic Focus**:
+
+    -   Purple regions may represent spatial outliers where the number of Thai tourists differs significantly from surrounding provinces. These areas might require specific policy interventions to either increase tourist inflow or improve tourism infrastructure.
+
+```{r}
+data_clean <- revenue_all %>%
+  filter(is.finite(total_value))  
+
+data_sf <- st_as_sf(data_clean)
+
+data_sf_centroid <- data_sf %>%
+  mutate(geometry = st_centroid(geometry)) %>%
+  mutate(geometry = st_jitter(geometry, amount = 0.001)) 
+
+# Create a spatial weights matrix (k-nearest neighbors with k = 5)
+coords <- st_coordinates(data_sf_centroid)  
+nb_dist <- knearneigh(coords, k = 5) %>% knn2nb()  
+listw <- nb2listw(nb_dist)  
+
+local_moran <- localmoran(data_sf_centroid$total_value, listw)
+
+data_sf_centroid$local_moran_I <- local_moran[, 1] 
+data_sf_centroid$local_moran_p <- local_moran[, 5] 
+
+ggplot(data_sf_centroid) +
+  geom_sf(aes(fill = local_moran_I), color = "black") +
+  scale_fill_viridis_c(option = "C") +
+  theme_minimal() +
+  labs(title = "Local Moran's I (LISA)", fill = "Local Moran's I")
+data_clean <- no_tourist_all %>%
+  filter(is.finite(total_value))
+
+data_sf <- st_as_sf(data_clean)
+
+data_sf_centroid <- data_sf %>% mutate(geometry = st_centroid(geometry))
+
+fips <- order(data_sf_centroid$province_eng)
+
+coords <- st_coordinates(data_sf_centroid) 
+nb_dist <- knearneigh(coords, k = 5) %>% knn2nb()  
+listw <- nb2listw(nb_dist) 
+
+localMI <- localmoran(data_sf_centroid$total_value, listw)
+
+formatted_results <- data.frame(
+  localMI[fips,],
+  row.names = make.unique(as.character(data_sf_centroid$province_eng[fips]))
+)
+
+printCoefmat(formatted_results)
+```
+
+### Observations:
+
+1.  **Local Moran's I Visualization**:
+
+    -   The color scale ranges from purple (lower values) to yellow (higher values). Provinces shaded in yellow exhibit stronger local spatial autocorrelation, indicating that they are part of high-high or low-low clusters for tourism revenue.
+
+    -   The black points represent the centroids of provinces, and the color fill around these points indicates the strength of their Local Moran’s I value.
+
+2.  **Spatial Clusters**:
+
+    -   High values of Local Moran’s I (yellow regions) indicate areas where tourism revenue is highly clustered, suggesting that these regions have similar revenue patterns.
+
+    -   Lower values (purple) indicate weaker clustering or potential outliers, where revenue patterns may differ significantly from neighboring provinces.
+
+### Analysis:
+
+1.  **Tourism Revenue Clusters**:
+
+    -   Regions with high Local Moran's I values (yellow) suggest spatial clusters of provinces with either high or low tourism revenue. These areas could represent well-established tourism hubs or underperforming regions that require strategic development.
+
+2.  **Outliers and Weak Clustering**:
+
+    -   Provinces with lower values (purple) could signify spatial outliers, where the revenue patterns differ from surrounding areas. These outliers may require unique interventions, such as infrastructure development or targeted marketing, to improve tourism revenue.
+
+```{r}
+data_clean <- revenue_foreign %>%
+  filter(is.finite(total_value))  
+
+data_sf <- st_as_sf(data_clean)
+
+data_sf_centroid <- data_sf %>%
+  mutate(geometry = st_centroid(geometry)) %>%
+  mutate(geometry = st_jitter(geometry, amount = 0.001))  
+
+coords <- st_coordinates(data_sf_centroid)  
+nb_dist <- knearneigh(coords, k = 5) %>% knn2nb() 
+listw <- nb2listw(nb_dist)  
+
+local_moran <- localmoran(data_sf_centroid$total_value, listw)
+
+data_sf_centroid$local_moran_I <- local_moran[, 1]  
+data_sf_centroid$local_moran_p <- local_moran[, 5]  
+
+ggplot(data_sf_centroid) +
+  geom_sf(aes(fill = local_moran_I), color = "black") +
+  scale_fill_viridis_c(option = "C") +
+  theme_minimal() +
+  labs(title = "Local Moran's I (LISA)", fill = "Local Moran's I")
+
+data_clean <- no_tourist_all %>%
+  filter(is.finite(total_value)) 
+
+data_sf <- st_as_sf(data_clean)
+
+data_sf_centroid <- data_sf %>% mutate(geometry = st_centroid(geometry))
+
+fips <- order(data_sf_centroid$province_eng)
+
+coords <- st_coordinates(data_sf_centroid)  
+nb_dist <- knearneigh(coords, k = 5) %>% knn2nb()  
+listw <- nb2listw(nb_dist)  
+
+localMI <- localmoran(data_sf_centroid$total_value, listw)
+
+formatted_results <- data.frame(
+  localMI[fips,],
+  row.names = make.unique(as.character(data_sf_centroid$province_eng[fips]))
+)
+
+printCoefmat(formatted_results)
+```
+
+### Observations:
+
+1.  **Local Moran's I Visualization**:
+
+    -   The color scale indicates the magnitude of Local Moran’s I, where higher values (yellow) represent stronger spatial autocorrelation for foreign tourism revenue. Provinces shaded in yellow exhibit high-high or low-low clustering.
+
+    -   Black dots indicate provincial centroids, and the shading around each dot corresponds to the Local Moran’s I value for that province.
+
+2.  **Spatial Clusters**:
+
+    -   Regions with high Local Moran’s I values (yellow) represent clusters where neighboring provinces have similar foreign tourism revenue levels. These could either be high-revenue regions or regions with consistently low foreign tourist revenue.
+
+    -   Purple areas represent provinces where the clustering is weaker or where provinces may behave differently from their neighbors, potentially identifying outliers.
+
+### Analysis:
+
+1.  **Revenue Clusters**:
+
+    -   Provinces with strong Local Moran’s I values (yellow) suggest concentrated clusters where foreign tourist revenue is either consistently high or low. These regions likely share similar characteristics, such as infrastructure, accessibility, or tourist appeal.
+
+2.  **Outliers and Policy Implications**:
+
+    -   Provinces shaded in purple or with lower Local Moran’s I values may act as outliers. These areas may not exhibit the same revenue patterns as their neighbors and could require targeted policies to either enhance foreign tourism or leverage potential tourist flows.
+
+```{r}
+data_clean <- revenue_thai %>%
+  filter(is.finite(total_value))  
+
+data_sf <- st_as_sf(data_clean)
+
+data_sf_centroid <- data_sf %>%
+  mutate(geometry = st_centroid(geometry)) %>%
+  mutate(geometry = st_jitter(geometry, amount = 0.001))  
+
+coords <- st_coordinates(data_sf_centroid)  
+nb_dist <- knearneigh(coords, k = 5) %>% knn2nb() 
+listw <- nb2listw(nb_dist)  
+
+local_moran <- localmoran(data_sf_centroid$total_value, listw)
+
+data_sf_centroid$local_moran_I <- local_moran[, 1] 
+data_sf_centroid$local_moran_p <- local_moran[, 5]  
+
+ggplot(data_sf_centroid) +
+  geom_sf(aes(fill = local_moran_I), color = "black") +
+  scale_fill_viridis_c(option = "C") +
+  theme_minimal() +
+  labs(title = "Local Moran's I (LISA)", fill = "Local Moran's I")
+
+data_clean <- no_tourist_all %>%
+  filter(is.finite(total_value))  
+
+data_sf <- st_as_sf(data_clean)
+
+data_sf_centroid <- data_sf %>% mutate(geometry = st_centroid(geometry))
+
+fips <- order(data_sf_centroid$province_eng)
+
+coords <- st_coordinates(data_sf_centroid)  
+nb_dist <- knearneigh(coords, k = 5) %>% knn2nb()  
+listw <- nb2listw(nb_dist)  
+
+localMI <- localmoran(data_sf_centroid$total_value, listw)
+
+formatted_results <- data.frame(
+  localMI[fips,],
+  row.names = make.unique(as.character(data_sf_centroid$province_eng[fips]))
+)
+
+printCoefmat(formatted_results)
+```
+
+### Observations:
+
+1.  **Local Moran's I Visualization**:
+
+    -   The color scale represents the magnitude of Local Moran’s I values, where yellow indicates areas with stronger spatial autocorrelation for Thai tourism revenue, while purple signifies weaker clustering or potential outliers.
+
+    -   The black dots represent the centroids of provinces, and their color shows the strength of spatial clustering in tourism revenue for those regions.
+
+2.  **Spatial Patterns**:
+
+    -   Regions with high Local Moran’s I values (yellow) indicate that neighboring provinces have similar revenue levels from domestic tourism, forming clusters. These clusters could either be high-revenue or low-revenue regions.
+
+    -   Purple areas represent provinces where the clustering is weak or where revenue patterns differ from their neighboring provinces, potentially identifying spatial outliers.
+
+### Analysis:
+
+1.  **Clusters of Domestic Tourism Revenue**:
+
+    -   Provinces with high Local Moran's I values show spatial clusters where domestic tourist revenue is either consistently high or low. These provinces may have similar tourism infrastructure, cultural attractions, or accessibility, leading to similar revenue patterns.
+
+2.  **Outliers and Strategy Implications**:
+
+    -   The purple-colored provinces suggest weak clustering or outliers in terms of tourism revenue. These provinces might benefit from targeted strategies to either improve domestic tourism revenue or integrate better with neighboring tourist hubs.
+
+# 7. Perform emerging hotspot analysis
+
+The provided R code snippets perform Local Moran’s I (LISA) analysis to identify hotspots and spatial clusters of various tourism-related variables across Thai provinces. This analysis helps in detecting patterns of spatial autocorrelation in the following datasets: total tourists, foreign tourists, tourist stays, Thai tourists, tourist stay ratio, total revenue, foreign revenue, and Thai revenue. The main goal is to find provinces that exhibit significant spatial clustering in these datasets, both in terms of high (hotspots) and low (cold spots) values.
+
+### Steps of the Analysis:
+
+1.  **Conversion to sf Object**:
+
+    -   The data is first converted into a simple features (`sf`) object to allow spatial analysis. This spatial data structure is essential for handling geospatial data in R.
+
+2.  **Filtering Non-Valid Values**:
+
+    -   The `filter()` function is used to remove any missing or `NA` values in the `total_value` column, ensuring that only valid data points are analyzed.
+
+3.  **Centroid Creation**:
+
+    -   The `MULTIPOLYGON` geometries of provinces are converted to centroids using `st_centroid()`. This simplification allows for a point-based representation of each province, making distance-based calculations easier for spatial weighting.
+
+4.  **Spatial Weight Matrix Construction**:
+
+    -   A k-nearest neighbors (k-NN) spatial weights matrix is constructed using `knearneigh()` and `knn2nb()` for each dataset, where each province (centroid) is linked to its five nearest neighbors (`k = 5`).
+
+    -   The `nb2listw()` function is then used to convert the neighbors into spatial weights, which are needed for the Moran's I calculation.
+
+5.  **Local Moran's I Calculation**:
+
+    -   Local Moran's I is calculated using the `localmoran()` function. This statistic measures the degree of spatial autocorrelation at the local level, indicating whether a province is spatially similar or dissimilar to its neighbors.
+
+        -   A **high positive value** indicates a hotspot (a province surrounded by similarly high values).
+
+        -   A **low negative value** indicates a cold spot (a province surrounded by similarly low values).
+
+        -   Significant positive or negative values indicate spatial clustering.
+
+6.  **Visualization**:
+
+    -   The results are visualized using `plot()` where provinces are colored according to their Local Moran’s I value, with the main title set as "Tourism Hotspots Based on Local Moran’s I". This visualization highlights provinces that are statistically significant hotspots or cold spots.
+
+### Datasets Analyzed:
+
+-   **Tourist Numbers**:
+
+    1.  `no_tourist_all`: Total number of tourists across provinces.
+
+    2.  `no_tourist_foreign`: Number of foreign tourists.
+
+    3.  `no_tourist_stay`: Number of tourists staying in each province.
+
+    4.  `no_tourist_thai`: Number of Thai (domestic) tourists.
+
+-   **Tourism Revenue**:
+
+    1.  `revenue_all`: Total tourism revenue for all tourists.
+
+    2.  `revenue_foreign`: Tourism revenue from foreign tourists.
+
+    3.  `revenue_thai`: Tourism revenue from domestic tourists.
+
+```{r}
+tourism_sf <- st_as_sf(no_tourist_all)
+
+tourism_sf <- tourism_sf %>%
+  filter(!is.na(total_value))
+
+tourism_centroids <- st_centroid(tourism_sf)
+
+tourism_neighbors <- knearneigh(st_coordinates(tourism_centroids), k = 5)
+
+tourism_weights <- nb2listw(knn2nb(tourism_neighbors), style = "W")
+
+hotspots <- localmoran(tourism_sf$total_value, tourism_weights)
+
+plot(tourism_sf["total_value"], main = "Tourism Hotspots Based on Local Moran's I")
+```
+
+### Observations:
+
+1.  **Color Scale**:
+
+    -   The map shows tourism intensity across different provinces, where high tourist activity (hotspots) is indicated by yellow and orange shades, while lower activity is represented in blue.
+
+2.  **Geographic Patterns**:
+
+    -   Most provinces appear to be in shades of blue, suggesting lower tourist activity or clustering.
+
+    -   There are likely only a few provinces in yellow or orange shades, which represent tourism hotspots where tourist activity is significantly higher.
+
+### Analysis:
+
+1.  **Hotspot Detection**:
+
+    -   The map identifies regions with high tourism activity based on the spatial autocorrelation of tourist numbers. These areas are potential focal points for tourism development or marketing efforts.
+
+2.  **Policy Implications**:
+
+    -   Regions with higher tourist numbers could be prioritized for infrastructure improvements or further investment to sustain and enhance tourism growth.
+
+    -   Lower activity areas (blue regions) may require different strategies to increase tourism appeal or distribute the flow of tourists more evenly.
+
+```{r}
+tourism_sf <- st_as_sf(no_tourist_foreign)
+
+tourism_sf <- tourism_sf %>%
+  filter(!is.na(total_value))
+
+tourism_centroids <- st_centroid(tourism_sf)
+
+tourism_neighbors <- knearneigh(st_coordinates(tourism_centroids), k = 5)
+
+tourism_weights <- nb2listw(knn2nb(tourism_neighbors), style = "W")
+
+hotspots <- localmoran(tourism_sf$total_value, tourism_weights)
+
+plot(tourism_sf["total_value"], main = "Tourism Hotspots Based on Local Moran's I")
+```
+
+### Observations:
+
+1.  **Color Gradient**:
+
+    -   The color scale ranges from blue (indicating lower tourist counts) to yellow (indicating higher tourist counts). The majority of the provinces appear in shades of blue, indicating lower foreign tourist activity.
+
+2.  **Geographic Distribution**:
+
+    -   Only a few regions seem to approach the warmer shades (yellow, orange), indicating hotspots where foreign tourists are more concentrated. Most regions are clustered around the lower end of the spectrum (blue and purple), which suggests that foreign tourist activity is concentrated in a few key provinces.
+
+### Analysis:
+
+1.  **Tourism Hotspots**:
+
+    -   The map reveals potential tourism hotspots (yellow regions) where foreign tourist activity is significantly higher. These provinces are likely important tourism hubs, potentially benefiting from established infrastructure and marketing focused on attracting international visitors.
+
+2.  **Policy Implications**:
+
+    -   Regions with higher tourist activity (yellow) should be considered for further development to sustain tourism growth.
+
+    -   Blue regions, representing lower foreign tourist activity, may need targeted initiatives to boost tourism, such as promoting new attractions, improving infrastructure, or enhancing accessibility.
+
+```{r}
+tourism_sf <- st_as_sf(no_tourist_stay)
+
+tourism_sf <- tourism_sf %>%
+  filter(!is.na(total_value))
+
+tourism_centroids <- st_centroid(tourism_sf)
+
+tourism_neighbors <- knearneigh(st_coordinates(tourism_centroids), k = 5)
+
+tourism_weights <- nb2listw(knn2nb(tourism_neighbors), style = "W")
+
+hotspots <- localmoran(tourism_sf$total_value, tourism_weights)
+
+plot(tourism_sf["total_value"], main = "Tourism Hotspots Based on Local Moran's I")
+```
+
+### Observations:
+
+1.  **Color Gradient**:
+
+    -   The color scale ranges from blue (indicating lower tourist stays) to yellow (indicating higher tourist stays). Most provinces appear in darker shades of blue, which signifies lower levels of tourist stays.
+
+2.  **Geographic Distribution**:
+
+    -   A few regions exhibit warmer colors (pink to yellow), indicating higher levels of tourist stays, suggesting they are tourism hotspots.
+
+### Analysis:
+
+1.  **Tourism Hotspots**:
+
+    -   Provinces in yellow or pink shades represent areas with significantly higher numbers of tourist stays, indicating potential tourism hotspots. These regions are likely popular destinations with established accommodation infrastructure or key tourist attractions.
+
+2.  **Strategic Focus**:
+
+    -   Regions in blue, where tourist stays are lower, may need strategic interventions to increase tourism. Efforts could include marketing campaigns, improving accessibility, or developing accommodation options to encourage longer stays.
+
+```{r}
+tourism_sf <- st_as_sf(no_tourist_thai)
+
+tourism_sf <- tourism_sf %>%
+  filter(!is.na(total_value))
+
+tourism_centroids <- st_centroid(tourism_sf)
+
+tourism_neighbors <- knearneigh(st_coordinates(tourism_centroids), k = 5)
+
+tourism_weights <- nb2listw(knn2nb(tourism_neighbors), style = "W")
+
+hotspots <- localmoran(tourism_sf$total_value, tourism_weights)
+
+plot(tourism_sf["total_value"], main = "Tourism Hotspots Based on Local Moran's I")
+```
+
+### Observations:
+
+1.  **Color Gradient**:
+
+    -   The color scale indicates the number of Thai tourists, ranging from blue (lower tourist numbers) to yellow (higher tourist numbers). Most provinces appear in blue, indicating lower numbers of tourists.
+
+2.  **Geographic Distribution**:
+
+    -   There are a few regions transitioning into warmer colors (yellow and pink), indicating provinces that act as tourism hotspots for Thai tourists.
+
+### Analysis:
+
+1.  **Tourism Hotspots**:
+
+    -   Provinces in yellow and pink are identified as hotspots where Thai tourist numbers are significantly higher compared to other regions. These could be regions with popular domestic tourist attractions or well-developed tourism infrastructure that caters to local travelers.
+
+2.  **Lower Tourist Activity**:
+
+    -   The regions in blue represent provinces with fewer domestic tourists. These areas might benefit from targeted strategies to boost domestic tourism, such as enhancing local attractions, improving infrastructure, or launching domestic tourism campaigns.
+
+```{r}
+tourism_sf <- st_as_sf(revenue_all)
+
+tourism_sf <- tourism_sf %>%
+  filter(!is.na(total_value))
+
+tourism_centroids <- st_centroid(tourism_sf)
+
+tourism_neighbors <- knearneigh(st_coordinates(tourism_centroids), k = 5)
+
+tourism_weights <- nb2listw(knn2nb(tourism_neighbors), style = "W")
+
+hotspots <- localmoran(tourism_sf$total_value, tourism_weights)
+
+plot(tourism_sf["total_value"], main = "Tourism Hotspots Based on Local Moran's I")
+```
+
+### Observations:
+
+1.  **Color Scale**:
+
+    -   The color gradient moves from blue (indicating lower tourism revenue) to yellow (indicating higher revenue). Most provinces are shaded in blue, suggesting lower levels of tourism revenue across these regions.
+
+2.  **Geographical Distribution**:
+
+    -   A small number of regions are approaching warmer shades like pink and yellow, indicating provinces where tourism revenue is significantly higher and where tourism hotspots are likely located.
+
+### Analysis:
+
+1.  **Tourism Revenue Hotspots**:
+
+    -   The yellow and pink regions represent provinces with the highest levels of tourism revenue, which are potential tourism hubs. These regions may benefit from established infrastructure, significant tourist attractions, or high visitor spending.
+
+2.  **Policy and Development Implications**:
+
+    -   Regions shaded in blue, where tourism revenue is lower, might require targeted efforts to increase tourism activity. This could involve improving infrastructure, creating or promoting tourist attractions, or developing marketing strategies to attract more visitors.
+
+3.  **Revenue Distribution**:
+
+    -   The clustering of revenue highlights key areas where tourism is concentrated, providing useful information for policy-making, resource allocation, and tourism development planning
+
+```{r}
+tourism_sf <- st_as_sf(revenue_foreign)
+
+tourism_sf <- tourism_sf %>%
+  filter(!is.na(total_value))
+
+tourism_centroids <- st_centroid(tourism_sf)
+
+tourism_neighbors <- knearneigh(st_coordinates(tourism_centroids), k = 5)
+
+tourism_weights <- nb2listw(knn2nb(tourism_neighbors), style = "W")
+
+hotspots <- localmoran(tourism_sf$total_value, tourism_weights)
+
+plot(tourism_sf["total_value"], main = "Tourism Hotspots Based on Local Moran's I")
+```
+
+### Observations:
+
+1.  **Color Scale**:
+
+    -   The map shows a color gradient from blue (lower foreign tourism revenue) to yellow (higher foreign tourism revenue). Most of the provinces appear in shades of blue, indicating relatively lower foreign tourist spending in these regions.
+
+2.  **Geographical Distribution**:
+
+    -   A few regions show warmer shades (pink to yellow), indicating higher concentrations of foreign tourist revenue and highlighting potential tourism hotspots.
+
+### Analysis:
+
+1.  **Tourism Revenue Hotspots**:
+
+    -   Provinces in yellow and pink represent areas where foreign tourist revenue is significantly higher, suggesting these are key destinations for international tourists. These regions likely have well-established tourism infrastructure, popular attractions, or are better known to foreign visitors.
+
+2.  **Policy Implications**:
+
+    -   The provinces in blue (lower foreign tourist revenue) may require targeted strategies to boost international tourism. This could involve promoting local attractions to foreign audiences, improving infrastructure, or offering incentives for tourism businesses to operate in these regions.
+
+3.  **Revenue Clustering**:
+
+    -   The map indicates regions where foreign tourist revenue is concentrated. Understanding why certain provinces attract higher foreign tourist spending can help in replicating similar success strategies in underperforming regions.
+
+```{r}
+tourism_sf <- st_as_sf(revenue_thai)
+
+tourism_sf <- tourism_sf %>%
+  filter(!is.na(total_value))
+
+tourism_centroids <- st_centroid(tourism_sf)
+
+tourism_neighbors <- knearneigh(st_coordinates(tourism_centroids), k = 5)
+
+tourism_weights <- nb2listw(knn2nb(tourism_neighbors), style = "W")
+
+hotspots <- localmoran(tourism_sf$total_value, tourism_weights)
+
+plot(tourism_sf["total_value"], main = "Tourism Hotspots Based on Local Moran's I")
+```
+
+### Observations:
+
+1.  **Color Scale**:
+
+    -   The majority of provinces are shaded in blue, indicating lower levels of revenue from Thai tourists across most regions.
+
+    -   Only a few regions are approaching warmer colors, such as pink and yellow, which indicate provinces with higher Thai tourism revenue.
+
+2.  **Geographic Distribution**:
+
+    -   A few provinces exhibit higher revenue from Thai tourists, highlighted in the pink-to-yellow range, which suggests that these provinces are domestic tourism hotspots.
+
+### Analysis:
+
+1.  **Revenue Hotspots**:
+
+    -   Provinces with warmer shades (yellow and pink) represent areas where domestic tourist spending is significantly higher. These regions are likely popular destinations for Thai tourists, possibly due to well-developed attractions, accessible infrastructure, or cultural significance.
+
+2.  **Targeting Low Revenue Areas**:
+
+    -   The provinces shaded in blue (lower domestic tourist revenue) may benefit from tourism development strategies, such as improving local attractions, infrastructure, or promoting regional tourism to increase domestic tourist spending.
+
+# 8. Conclusion
+
+The analysis provides insights into **Thailand's tourism economy** across several dimensions, including total tourists, foreign tourists, domestic tourists (Thai), tourist stays, and tourism revenue (both total, foreign, and domestic). The findings, derived from **Local Moran's I (LISA) analysis** and geospatial techniques, highlight the spatial distribution of tourism activities and revenue, identifying significant hotspots and cold spots across Thai provinces.
+
+#### Key Findings:
+
+1.  **Tourism Clusters**:
+
+    -   **Tourism activity (total tourists, foreign tourists, Thai tourists)**: The analysis reveals strong clustering in specific provinces, such as Bangkok, Phuket, and Chiang Mai, which consistently emerge as tourism hotspots. These regions have well-developed tourism infrastructure and attract both domestic and international visitors.
+
+    -   **Domestic tourism**: Provinces like **Chiang Mai, Sukhothai, and Phetchaburi** show high levels of Thai tourist activity, indicating that these regions are popular destinations for local travelers. This presents opportunities for further development focused on the domestic market.
+
+2.  **Tourism Revenue Distribution**:
+
+    -   **Total and foreign tourism revenue**: Regions with significant tourist attractions and international airports, such as **Bangkok and Phuket**, exhibit high levels of foreign tourism revenue, indicating they are central to Thailand's international tourism market.
+
+    -   **Domestic tourism revenue**: A few provinces stand out for high domestic tourism revenue, with clustering observed in central and northern regions. These areas are crucial for sustaining Thailand’s tourism economy and indicate the resilience of local travel despite global disruptions like the COVID-19 pandemic.
+
+3.  **Emerging Hotspots and Cold Spots**:
+
+    -   **Emerging Hotspots**: Some provinces demonstrate increasing levels of tourism activity and revenue over time, especially as the industry recovers from the pandemic. These areas present prime opportunities for investment to sustain growth and attract both domestic and international visitors.
+
+    -   **Cold Spots**: Provinces with consistently low levels of tourist activity or revenue may benefit from targeted interventions. Infrastructure development, improved accessibility, and focused marketing campaigns could help distribute tourist activity more evenly across the country.
+
+4.  **Impact of COVID-19**:
+
+    -   **Tourist numbers and revenue** were significantly impacted by the pandemic, particularly in 2020 and 2021. However, signs of recovery are evident from 2022 onwards, with key provinces regaining some of their pre-pandemic tourism levels.
+
+    -   Domestic tourism proved more resilient during the pandemic, with local travelers continuing to visit key provinces. This resilience suggests that bolstering domestic tourism could be a vital strategy for mitigating future global disruptions.
+
+#### Strategic Recommendations:
+
+1.  **Focusing on Key Provinces**: Invest in infrastructure, marketing, and sustainable tourism practices in identified hotspots such as **Bangkok, Phuket, Chiang Mai**, and **Phetchaburi** to maintain and grow their tourism appeal.
+
+2.  **Boosting Domestic Tourism**: Develop targeted strategies to encourage domestic travel to underperforming regions, particularly those neighboring major tourist hubs, leveraging existing infrastructure to increase the flow of tourists.
+
+3.  **Distributing Tourism Benefits**: Use emerging hotspot analysis to target investments in regions showing potential growth, ensuring that tourism benefits are spread more evenly across the country.
+
+4.  **Pandemic Recovery**: Focus on strategies that support continued recovery post-COVID, such as promoting safe and sustainable tourism practices and developing attractions that cater to both domestic and international tourists.
+
+Overall, the spatial analysis provides a comprehensive view of the **spatio-temporal dynamics of tourism** in Thailand, enabling data-driven decision-making for policymakers and stakeholders aiming to optimize Thailand's tourism economy both in the short and long term.
