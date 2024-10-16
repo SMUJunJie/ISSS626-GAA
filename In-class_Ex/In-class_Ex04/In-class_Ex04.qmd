@@ -1,11 +1,37 @@
 ---
 title: "In-class_Ex04"
 author: "Qu JunJie"
+date: "17 Sep 2024"
+date-modified: "last-modified"
+execute: 
+  eval: true
+  echo: true
+  message: false
+  freeze: true
+format: 
+  html:
+    code-fold: true
 ---
+
+## Loading the package
+
+In this in-class exercise, sf, spdep, tmap, tidyverse, knitr and GWmodel will be used.
+
+Using the step you leanred from previous hands-in, install and load the necessary R packages in R environment.
 
 ```{r}
 pacman::p_load(sf,ggstatsplot, tmap, tidyverse, knitr, GWmodel)
 ```
+
+## Preparing the Data
+
+For this in-class exercise, Hunan shapefile and Hunan_2012 data file will be used.Using the steps you learned from previous hands-on, complete the following tasks:
+
+-   import Hunan shapefile and parse it into a sf polygon feature object.
+
+-   import Hunan_2012.csv file parse it into a tibble data.frame.
+
+-   join Hunan and Hunan_2012 data.frames.
 
 ```{r}
 hunan_sf <- st_read(dsn = "data/geospatial", 
@@ -21,10 +47,29 @@ hunan_sf <- left_join(hunan_sf, hunan2012) %>%
   select(1:3, 7,15, 16, 31,32)
 ```
 
+## Mapping GDPPC
+
+Using the steps you learned from Hands-on Exercise 5, prepare a choropleth map showing the geographic distribution of GDPPC of Hunan Province.![](images/clipboard-26712824.png)
+
+```{r}
+basemap <- tm_shape(hunan_sf) +
+  tm_polygons() +
+  tm_text("NAME_3", size=0.5)
+
+gdppc <- qtm(hunan_sf, "GDPPC")
+tmap_arrange(basemap, gdppc, asp=1, ncol=2)
+```
+
+## Converting to SpatialPolygonDataFrame
+
 ```{r}
 hunan_sp <- hunan_sf %>%
   as_Spatial()
 ```
+
+## Geographically Weighted Summary Statistics with adaptive bandwidth
+
+### Determine adaptive bandwidth
 
 ```{r}
 bw_CV <- bw.gwr(GDPPC ~ 1,
@@ -53,23 +98,9 @@ bw_AIC <- bw.gwr(GDPPC ~ 1,
 bw_AIC
 ```
 
-```{r}
-bw_CV <- bw.gwr(GDPPC ~ 1,
-                data = hunan_sp,
-                approach = "CV",
-                adaptive = FALSE,
-                kernel = "bisquare",
-                longlat = T)
-```
+## Geographically Weighted Summary Statistics with adaptive bandwidth
 
-```{R}
-bw_AIC <- bw.gwr(GDPPC ~ 1,
-                data = hunan_sp,
-                approach = "AIC",
-                adaptive = FALSE,
-                kernel = "bisquare",
-                longlat = T)
-```
+### Computing geographically wieghted summary statistics
 
 ```{r}
 gwstat <- gwss(data = hunan_sp,
@@ -80,13 +111,21 @@ gwstat <- gwss(data = hunan_sp,
                longlat = T)
 ```
 
+### Preparing the output data
+
+Code chunk below is used to extract **SDF** data table from **gwss** object output from `gwss()`. It will be converted into data.frame by using `as.data.frame()`.
+
 ```{r}
 gwstat_df <- as.data.frame(gwstat$SDF)
 ```
 
+Next, `cbind()` is used to append the newly derived data.frame onto *hunan_sf* sf data.frame.
+
 ```{r}
 hunan_gstat <- cbind(hunan_sf, gwstat_df)
 ```
+
+## Visualising geographically weighted summary statistics
 
 ```{r}
 tm_shape(hunan_gstat) +
@@ -103,6 +142,143 @@ tm_shape(hunan_gstat) +
             frame = TRUE)
 ```
 
-```{r}
+![](images/clipboard-3445924197.png)
 
+### Determine fixed bandwidth
+
+```{r}
+bw_CV <- bw.gwr(GDPPC ~ 1,
+                data = hunan_sp,
+                approach = "CV",
+                adaptive = FALSE,
+                kernel = "bisquare",
+                longlat = T)
 ```
+
+```{r}
+bw_AIC <- bw.gwr(GDPPC ~ 1,
+                data = hunan_sp,
+                approach = "AIC",
+                adaptive = FALSE,
+                kernel = "bisquare",
+                longlat = T)
+```
+
+### Computing adaptive bandwidth
+
+```{r}
+gwstat <- gwss(data = hunan_sp,
+               vars = "GDPPC",
+               bw = bw_AIC,
+               kernel = "bisquare",
+               adaptive = FALSE,
+               longlat = T)
+```
+
+### Preparing the output data
+
+Code chunk below is used to extract **SDF** data table from **gwss** object output from `gwss()`. It will be converted into data.frame by using `as.data.frame()`.
+
+```{r}
+gwstat_df <- as.data.frame(gwstat$SDF)
+```
+
+Next, `cbind()` is used to append the newly derived data.frame onto *hunan_sf* sf data.frame.
+
+```{r}
+hunan_gstat <- cbind(hunan_sf, gwstat_df)
+```
+
+### Visualising geographically weighted summary statistics
+
+```{r}
+tm_shape(hunan_gstat) +
+  tm_fill("GDPPC_LM",
+          n = 5,
+          style = "quantile") +
+  tm_borders(alpha = 0.5) +
+  tm_layout(main.title = "Distribution of geographically wieghted mean",
+            main.title.position = "center",
+            main.title.size = 2.0,
+            legend.text.size = 1.2,
+            legend.height = 1.50, 
+            legend.width = 1.50,
+            frame = TRUE)
+```
+
+![](images/clipboard-3210947487.png)
+
+## Geographically Weighted Correlation with Adaptive Bandwidth
+
+Business question: Is there any relationship between GDP per capita and Gross Industry Output?
+
+```{r}
+ggscatterstats(
+  data = hunan2012, 
+  x = Agri, 
+  y = GDPPC,
+  xlab = "Gross Agriculture Output", ## label for the x-axis
+  ylab = "GDP per capita", 
+  label.var = County, 
+  label.expression = Agri > 10000 & GDPPC > 50000, 
+  point.label.args = list(alpha = 0.7, size = 4, color = "grey50"),
+  xfill = "#CC79A7", 
+  yfill = "#009E73", 
+  title = "Relationship between GDP PC and Gross Agriculture Output")
+```
+
+![](images/clipboard-1731408329.png)
+
+Geospatial analytics solution
+
+```{r}
+bw <- bw.gwr(GDPPC ~ GIO, 
+             data = hunan_sp, 
+             approach = "AICc", 
+             adaptive = TRUE)
+```
+
+```{r}
+gwstats <- gwss(hunan_sp, 
+                vars = c("GDPPC", "GIO"), 
+                bw = bw,
+                kernel = "bisquare",
+                adaptive = TRUE, 
+                longlat = T)
+```
+
+Code chunk below is used to extract **SDF** data table from **gwss** object output from `gwss()`. It will be converted into data.frame by using `as.data.frame()`.
+
+```{r}
+gwstat_df <- as.data.frame(gwstats$SDF) %>%
+  select(c(12,13)) %>%
+  rename(gwCorr = Corr_GDPPC.GIO,
+         gwSpearman = Spearman_rho_GDPPC.GIO)
+```
+
+Next, `cbind()` is used to append the newly derived data.frame onto *hunan_sf* sf data.frame.
+
+```{r}
+hunan_Corr <- cbind(hunan_sf, gwstat_df)
+```
+
+## Visualising Local Correlation
+
+```{r}
+tm_shape(hunan_Corr) +
+  tm_fill("gwSpearman",
+          n = 5,
+          style = "quantile") +
+  tm_borders(alpha = 0.5) +
+  tm_layout(main.title = "Local Spearman Rho",
+            main.title.position = "center",
+            main.title.size = 2.0,
+            legend.text.size = 1.2,
+            legend.height = 1.50, 
+            legend.width = 1.50,
+            frame = TRUE)
+```
+
+![](images/clipboard-3972512876.png)
+
+![](images/clipboard-864910896.png)
