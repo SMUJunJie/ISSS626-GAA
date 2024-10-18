@@ -48,8 +48,8 @@ sg_sf will look similar to figure below.
 The code chunk below, `st_union()`is used to derive the coastal outline sf tibble data.frame.
 
 ```{r}
-sg_sf <- mpsz_sf %>%
-  st_union()
+#sg_sf <- mpsz_sf %>%
+  #st_union()
 ```
 
 *sg_sf* will look similar to the figure below.
@@ -91,14 +91,14 @@ Instead of using the two steps approaches discussed in Hands-on Exercise 3 to cr
 In the code chunk below, [`as.ppp()`](https://search.r-project.org/CRAN/refmans/spatstat.geom/html/as.ppp.html) of [**spatstat.geom**](https://cran.r-project.org/web/packages/spatstat.geom/spatstat.geom.pdf) package is used to derive an **ppp** object layer directly from a sf tibble data.frame.
 
 ```{r}
-childcare_ppp <- as.ppp(childcare_sf)
-plot(childcare_ppp)
+#childcare_ppp <- as.ppp(childcare_sf)
+#plot(childcare_ppp)
 ```
 
 Next, `summary()` can be used to reveal the properties of the newly created ppp objects.
 
 ```{r}
-summary(childcare_ppp)
+#summary(childcare_ppp)
 ```
 
 ## Creating ***owin*** object from sf data.frame
@@ -106,14 +106,14 @@ summary(childcare_ppp)
 In the code chunk `as.owin()` of **spatstat.geom** is used to create an **owin** object class from polygon sf tibble data.frame.
 
 ```{r}
-sg_owin <- as.owin(sg_sf)
-plot(sg_owin)
+#sg_owin <- as.owin(sg_sf)
+#plot(sg_owin)
 ```
 
 Next, *summary()* function is used to display the summary information of the owin object class.
 
 ```{r}
-summary(sg_owin)
+#summary(sg_owin)
 ```
 
 ## Combining point events object and owin object
@@ -121,13 +121,13 @@ summary(sg_owin)
 Using the step you learned from Hands-on Exercise 3, create an ppp object by combining childcare_ppp and sg_owin.
 
 ```{r}
-childcareSG_ppp = childcare_ppp[sg_owin]
+#childcareSG_ppp = childcare_ppp[sg_owin]
 ```
 
 The output object combined both the point and polygon feature in one ppp object class as shown below.
 
 ```{r}
-plot(childcareSG_ppp)
+#plot(childcareSG_ppp)
 ```
 
 ![](images/clipboard-628625749.png)
@@ -137,14 +137,14 @@ plot(childcareSG_ppp)
 The code chunk below re-scale the unit of measurement from metre to kilometre before performing KDE.
 
 ```{r}
-childcareSG_ppp.km <- rescale.ppp(childcareSG_ppp, 
-                                  1000, 
-                                  "km")
-
-kde_childcareSG_adaptive <- adaptive.density(
-  childcareSG_ppp.km, 
-  method="kernel")
-plot(kde_childcareSG_adaptive)
+# #childcareSG_ppp.km <- rescale.ppp(childcareSG_ppp, 
+#                                   1000, 
+#                                   "km")
+# 
+# #kde_childcareSG_adaptive <- adaptive.density(
+#   childcareSG_ppp.km, 
+#   method="kernel")
+# plot(kde_childcareSG_adaptive)
 ```
 
 ![](images/clipboard-415122219.png)
@@ -154,18 +154,18 @@ plot(kde_childcareSG_adaptive)
 Code chunk shown two different ways to convert KDE output into grid object
 
 ```{r}
-par(bg = '#E4D5C9')
-
-gridded_kde_childcareSG_ad <- maptools::as.SpatialGridDataFrame.im(
-  kde_childcareSG_adaptive)
-spplot(gridded_kde_childcareSG_ad)
+# par(bg = '#E4D5C9')
+# 
+# gridded_kde_childcareSG_ad <- maptools::as.SpatialGridDataFrame.im(
+#   kde_childcareSG_adaptive)
+# spplot(gridded_kde_childcareSG_ad)
 ```
 
 ```{r}
-gridded_kde_childcareSG_ad <- as(
-  kde_childcareSG_adaptive,
-  "SpatialGridDataFrame")
-spplot(gridded_kde_childcareSG_ad)
+# gridded_kde_childcareSG_ad <- as(
+#   kde_childcareSG_adaptive,
+#   "SpatialGridDataFrame")
+# spplot(gridded_kde_childcareSG_ad)
 ```
 
 ![](images/clipboard-294957302.png)
@@ -175,11 +175,11 @@ spplot(gridded_kde_childcareSG_ad)
 The code chunk below is used to plot the output raster by using tmap functions.
 
 ```{r}
-tm_shape(kde_childcareSG_ad_raster) + 
-  tm_raster(palette = "viridis") +
-  tm_layout(legend.position = c("right", "bottom"), 
-            frame = FALSE,
-            bg.color = "#E4D5C9")
+# tm_shape(kde_childcareSG_ad_raster) + 
+#   tm_raster(palette = "viridis") +
+#   tm_layout(legend.position = c("right", "bottom"), 
+#             frame = FALSE,
+#             bg.color = "#E4D5C9")
 ```
 
 ![](images/clipboard-373649832.png)
@@ -191,13 +191,13 @@ Extract and create an ppp object showing child care services and within Punggol 
 On the other hand, `filter()` of dplyr package should be used to extract the target planning areas as shown in the code chunk below.
 
 ```{r}
-pg_owin <- mpsz_sf %>%
-  filter(PLN_AREA_N == "PUNGGOL") %>%
-  as.owin()
-
-childcare_pg = childcare_ppp[pg_owin]
-
-plot(childcare_pg)  
+# pg_owin <- mpsz_sf %>%
+#   filter(PLN_AREA_N == "PUNGGOL") %>%
+#   as.owin()
+# 
+# childcare_pg = childcare_ppp[pg_owin]
+# 
+# plot(childcare_pg)  
 ```
 
 ![](images/clipboard-4134194683.png)
@@ -207,7 +207,7 @@ plot(childcare_pg)
 In order to ensure reproducibility, it is important to include the code chunk below before using spatstat functions involve Monte Carlo simulation
 
 ```{r}
-set.seed(1234)
+# set.seed(1234)
 ```
 
 ## Edge correction methods of spatstat
@@ -255,13 +255,13 @@ For the purpose of this exercise, three basic data sets are needed, they are:
 Using the steps you learned in previous lessons, import the downloaded accident data into R environment and save the output as an sf tibble data.frame.
 
 ```{r}
-rdacc_sf <- read_csv("data/thai_road_accident_2019_2022.csv") %>%
-  filter(!is.na(longitude) & longitude != "", 
-         !is.na(latitude) & latitude != "") %>%
-  st_as_sf(coords = c(
-    "longitude", "latitude"),
-    crs=4326) %>%
-  st_transform(crs = 32647) 
+# rdacc_sf <- read_csv("data/thai_road_accident_2019_2022.csv") %>%
+#   filter(!is.na(longitude) & longitude != "", 
+#          !is.na(latitude) & latitude != "") %>%
+#   st_as_sf(coords = c(
+#     "longitude", "latitude"),
+#     crs=4326) %>%
+#   st_transform(crs = 32647) 
 ```
 
 ## Visualising The Accident Data
@@ -269,11 +269,11 @@ rdacc_sf <- read_csv("data/thai_road_accident_2019_2022.csv") %>%
 Using the steps you learned in previous lessons, import the ACLED data into R environment as an sf tibble data.frame.
 
 ```{r}
-tmap_mode("plot")
-acled_sf %>%
-  filter(year == 2023 | 
-           event_type == "Political violence") %>%
-  tm_shape()+
-  tm_dots()
-tmap_mode("plot")
+# tmap_mode("plot")
+# acled_sf %>%
+#   filter(year == 2023 | 
+#            event_type == "Political violence") %>%
+#   tm_shape()+
+#   tm_dots()
+# tmap_mode("plot")
 ```

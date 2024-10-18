@@ -228,7 +228,34 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
    
   <ul>
   <li><a href="#issue-1-installing-maptools" id="toc-issue-1-installing-maptools" class="nav-link active" data-scroll-target="#issue-1-installing-maptools">Issue 1: Installing maptools</a></li>
-  <li><a href="#issue-2-creating-coastal-outline" id="toc-issue-2-creating-coastal-outline" class="nav-link" data-scroll-target="#issue-2-creating-coastal-outline">Issue 2: Creating coastal outline</a></li>
+  <li><a href="#issue-2-creating-coastal-outline" id="toc-issue-2-creating-coastal-outline" class="nav-link" data-scroll-target="#issue-2-creating-coastal-outline">Issue 2: Creating coastal outline</a>
+  <ul class="collapse">
+  <li><a href="#working-with-st_union" id="toc-working-with-st_union" class="nav-link" data-scroll-target="#working-with-st_union">Working with <code>st_union()</code></a></li>
+  <li><a href="#introducing-spatstat-package" id="toc-introducing-spatstat-package" class="nav-link" data-scroll-target="#introducing-spatstat-package">Introducing spatstat package</a></li>
+  <li><a href="#spatstat" id="toc-spatstat" class="nav-link" data-scroll-target="#spatstat">spatstat</a>
+  <ul class="collapse">
+  <li><a href="#spatstat-sub-packages" id="toc-spatstat-sub-packages" class="nav-link" data-scroll-target="#spatstat-sub-packages">spatstat sub-packages</a></li>
+  </ul></li>
+  <li><a href="#creating-ppp-objects-from-sf-data.frame" id="toc-creating-ppp-objects-from-sf-data.frame" class="nav-link" data-scroll-target="#creating-ppp-objects-from-sf-data.frame">Creating ppp objects from sf data.frame</a></li>
+  <li><a href="#creating-owin-object-from-sf-data.frame" id="toc-creating-owin-object-from-sf-data.frame" class="nav-link" data-scroll-target="#creating-owin-object-from-sf-data.frame">Creating <strong><em>owin</em></strong> object from sf data.frame</a></li>
+  <li><a href="#combining-point-events-object-and-owin-object" id="toc-combining-point-events-object-and-owin-object" class="nav-link" data-scroll-target="#combining-point-events-object-and-owin-object">Combining point events object and owin object</a></li>
+  <li><a href="#kernel-density-estimation-of-spatial-point-event" id="toc-kernel-density-estimation-of-spatial-point-event" class="nav-link" data-scroll-target="#kernel-density-estimation-of-spatial-point-event">Kernel Density Estimation of Spatial Point Event</a></li>
+  <li><a href="#kernel-density-estimation" id="toc-kernel-density-estimation" class="nav-link" data-scroll-target="#kernel-density-estimation">Kernel Density Estimation</a>
+  <ul class="collapse">
+  <li><a href="#visualising-kde-using-tmap" id="toc-visualising-kde-using-tmap" class="nav-link" data-scroll-target="#visualising-kde-using-tmap">Visualising KDE using tmap</a></li>
+  </ul></li>
+  <li><a href="#extracting-study-area-using-sf-objects" id="toc-extracting-study-area-using-sf-objects" class="nav-link" data-scroll-target="#extracting-study-area-using-sf-objects">Extracting study area using sf objects</a></li>
+  <li><a href="#monte-carlo-simulation" id="toc-monte-carlo-simulation" class="nav-link" data-scroll-target="#monte-carlo-simulation">Monte Carlo Simulation</a></li>
+  <li><a href="#edge-correction-methods-of-spatstat" id="toc-edge-correction-methods-of-spatstat" class="nav-link" data-scroll-target="#edge-correction-methods-of-spatstat">Edge correction methods of spatstat</a></li>
+  <li><a href="#geospatial-analytics-for-social-good-thailand-road-accident-case-study" id="toc-geospatial-analytics-for-social-good-thailand-road-accident-case-study" class="nav-link" data-scroll-target="#geospatial-analytics-for-social-good-thailand-road-accident-case-study">Geospatial Analytics for Social Good: Thailand Road Accident Case Study</a>
+  <ul class="collapse">
+  <li><a href="#background" id="toc-background" class="nav-link" data-scroll-target="#background">Background</a></li>
+  </ul></li>
+  <li><a href="#the-study-area" id="toc-the-study-area" class="nav-link" data-scroll-target="#the-study-area">The Study Area</a></li>
+  <li><a href="#the-data" id="toc-the-data" class="nav-link" data-scroll-target="#the-data">The Data</a></li>
+  <li><a href="#importing-traffic-accident-data" id="toc-importing-traffic-accident-data" class="nav-link" data-scroll-target="#importing-traffic-accident-data">Importing Traffic Accident Data</a></li>
+  <li><a href="#visualising-the-accident-data" id="toc-visualising-the-accident-data" class="nav-link" data-scroll-target="#visualising-the-accident-data">Visualising The Accident Data</a></li>
+  </ul></li>
   </ul>
 </nav>
     </div>
@@ -261,7 +288,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <div>
     <div class="quarto-title-meta-heading">Modified</div>
     <div class="quarto-title-meta-contents">
-      <p class="date-modified">October 16, 2024</p>
+      <p class="date-modified">October 18, 2024</p>
     </div>
   </div>
     
@@ -291,9 +318,11 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="issue-2-creating-coastal-outline" class="level1">
 <h1>Issue 2: Creating coastal outline</h1>
-<p>in sf package, there are two functions allow us to combine multuple simple features into</p>
-<p>Working with st_union()</p>
-<p>The code chunk below, st_union() is used to derive the coastal outline sf tibble data.frame.</p>
+<p>In <strong>sf</strong> package, there are two functions allow us to combine multiple simple features into one simple features. They are <a href="https://r-spatial.github.io/sf/reference/geos_combine.html"><code>st_combine()</code></a> and <code>st_union()</code>.</p>
+<ul>
+<li><p><code>st_combine()</code> returns a single, combined geometry, with no resolved boundaries; returned geometries may well be invalid.</p></li>
+<li><p>If y is missing, <code>st_union(x)</code> returns a single geometry with resolved boundaries, else the geometries for all unioned pairs of x[i] and y[j].</p></li>
+</ul>
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
@@ -302,8 +331,251 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </details>
 </div>
 <p>sg_sf will look similar to figure below.</p>
+<section id="working-with-st_union" class="level3">
+<h3 class="anchored" data-anchor-id="working-with-st_union">Working with <code>st_union()</code></h3>
+<p>The code chunk below, <code>st_union()</code>is used to derive the coastal outline sf tibble data.frame.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">#sg_sf &lt;- mpsz_sf %&gt;%</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="co">#st_union()</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<p><em>sg_sf</em>&nbsp;will look similar to the figure below.</p>
+<p><img src="images/clipboard-3038439682.png" class="img-fluid"></p>
+</section>
+<section id="introducing-spatstat-package" class="level2">
+<h2 class="anchored" data-anchor-id="introducing-spatstat-package">Introducing spatstat package</h2>
+<p><a href="https://spatstat.org/"><strong>spatstat</strong></a> R package is a comprehensive open-source toolbox for analysing Spatial Point Patterns. Focused mainly on two-dimensional point patterns, including multitype or marked points, in any spatial region.</p>
+</section>
+<section id="spatstat" class="level2">
+<h2 class="anchored" data-anchor-id="spatstat">spatstat</h2>
+<section id="spatstat-sub-packages" class="level3">
+<h3 class="anchored" data-anchor-id="spatstat-sub-packages">spatstat sub-packages</h3>
+<ul>
+<li><p>The <a href="https://cran.r-project.org/web/packages/spatstat/index.html"><strong>spatstat</strong></a> package now contains only documentation and introductory material. It provides beginner’s introductions, vignettes, interactive demonstration scripts, and a few help files summarising the package.</p></li>
+<li><p>The <a href="https://isss626-ay2024-25aug.netlify.app/in-class_ex/in-class_ex02/in-class_ex02-sppa"><strong>spatstat.data</strong></a> package now contains all the datasets for spatstat.</p></li>
+<li><p>The <a href="https://cran.r-project.org/web/packages/spatstat.utils/index.html"><strong>spatstat.utils</strong></a> package contains basic utility functions for spatstat.</p></li>
+<li><p>The <a href="https://cran.r-project.org/web/packages/spatstat.univar/spatstat.univar.pdf"><strong>spatstat.univar</strong></a> package contains functions for estimating and manipulating probability distributions of one-dimensional random variables.</p></li>
+<li><p>The <a href="https://cran.r-project.org/web/packages/spatstat.sparse/spatstat.sparse.pdf"><strong>spatstat.sparse</strong></a> package contains functions for manipulating sparse arrays and performing linear algebra.</p></li>
+<li><p>The <a href="https://cran.r-project.org/web/packages/spatstat.geom/index.html"><strong>spatstat.geom</strong></a> package contains definitions of spatial objects (such as point patterns, windows and pixel images) and code which performs geometrical operations.</p></li>
+<li><p>The <a href="https://cran.r-project.org/web/packages/spatstat.random/index.html"><strong>spatstat.random</strong></a> package contains functions for random generation of spatial patterns and random simulation of models.</p></li>
+<li><p>The <a href="https://cran.r-project.org/web/packages/spatstat.explore/index.html"><strong>spatstat.explore</strong></a> package contains the code for exploratory data analysis and nonparametric analysis of spatial data.</p></li>
+<li><p>The <a href="https://cran.r-project.org/web/packages/spatstat.model/index.html"><strong>spatstat.model</strong></a> package contains the code for model-fitting, model diagnostics, and formal inference.</p></li>
+<li><p>The <a href="https://cran.r-project.org/web/packages/spatstat.linnet/index.html"><strong>spatstat.linnet</strong></a> package defines spatial data on a linear network, and performs geometrical operations and statistical analysis on such data.</p></li>
+</ul>
+</section>
+</section>
+<section id="creating-ppp-objects-from-sf-data.frame" class="level2">
+<h2 class="anchored" data-anchor-id="creating-ppp-objects-from-sf-data.frame">Creating ppp objects from sf data.frame</h2>
+<p>Instead of using the two steps approaches discussed in Hands-on Exercise 3 to create the <strong>ppp</strong> objects, in this section you will learn how to work with sf data.frame.</p>
+<p>In the code chunk below,&nbsp;<a href="https://search.r-project.org/CRAN/refmans/spatstat.geom/html/as.ppp.html"><code>as.ppp()</code></a>&nbsp;of&nbsp;<a href="https://cran.r-project.org/web/packages/spatstat.geom/spatstat.geom.pdf"><strong>spatstat.geom</strong></a>&nbsp;package is used to derive an&nbsp;<strong>ppp</strong>&nbsp;object layer directly from a sf tibble data.frame.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co">#childcare_ppp &lt;- as.ppp(childcare_sf)</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="co">#plot(childcare_ppp)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<p>Next,&nbsp;<code>summary()</code>&nbsp;can be used to reveal the properties of the newly created ppp objects.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co">#summary(childcare_ppp)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+</section>
+<section id="creating-owin-object-from-sf-data.frame" class="level2">
+<h2 class="anchored" data-anchor-id="creating-owin-object-from-sf-data.frame">Creating <strong><em>owin</em></strong> object from sf data.frame</h2>
+<p>In the code chunk&nbsp;<code>as.owin()</code>&nbsp;of&nbsp;<strong>spatstat.geom</strong>&nbsp;is used to create an&nbsp;<strong>owin</strong>&nbsp;object class from polygon sf tibble data.frame.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co">#sg_owin &lt;- as.owin(sg_sf)</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="co">#plot(sg_owin)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<p>Next,&nbsp;<em>summary()</em>&nbsp;function is used to display the summary information of the owin object class.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co">#summary(sg_owin)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+</section>
+<section id="combining-point-events-object-and-owin-object" class="level2">
+<h2 class="anchored" data-anchor-id="combining-point-events-object-and-owin-object">Combining point events object and owin object</h2>
+<p>Using the step you learned from Hands-on Exercise 3, create an ppp object by combining childcare_ppp and sg_owin.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co">#childcareSG_ppp = childcare_ppp[sg_owin]</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<p>The output object combined both the point and polygon feature in one ppp object class as shown below.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co">#plot(childcareSG_ppp)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<p><img src="images/clipboard-628625749.png" class="img-fluid"></p>
+</section>
+<section id="kernel-density-estimation-of-spatial-point-event" class="level2">
+<h2 class="anchored" data-anchor-id="kernel-density-estimation-of-spatial-point-event">Kernel Density Estimation of Spatial Point Event</h2>
+<p>The code chunk below re-scale the unit of measurement from metre to kilometre before performing KDE.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="co"># #childcareSG_ppp.km &lt;- rescale.ppp(childcareSG_ppp, </span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="co">#                                   1000, </span></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a><span class="co">#                                   "km")</span></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a><span class="co"># </span></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a><span class="co"># #kde_childcareSG_adaptive &lt;- adaptive.density(</span></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a><span class="co">#   childcareSG_ppp.km, </span></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a><span class="co">#   method="kernel")</span></span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a><span class="co"># plot(kde_childcareSG_adaptive)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<p><img src="images/clipboard-415122219.png" class="img-fluid"></p>
+</section>
+<section id="kernel-density-estimation" class="level2">
+<h2 class="anchored" data-anchor-id="kernel-density-estimation">Kernel Density Estimation</h2>
+<p>Code chunk shown two different ways to convert KDE output into grid object</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co"># par(bg = '#E4D5C9')</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="co"># </span></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="co"># gridded_kde_childcareSG_ad &lt;- maptools::as.SpatialGridDataFrame.im(</span></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a><span class="co">#   kde_childcareSG_adaptive)</span></span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a><span class="co"># spplot(gridded_kde_childcareSG_ad)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co"># gridded_kde_childcareSG_ad &lt;- as(</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="co">#   kde_childcareSG_adaptive,</span></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="co">#   "SpatialGridDataFrame")</span></span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a><span class="co"># spplot(gridded_kde_childcareSG_ad)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<p><img src="images/clipboard-294957302.png" class="img-fluid"></p>
+<section id="visualising-kde-using-tmap" class="level3">
+<h3 class="anchored" data-anchor-id="visualising-kde-using-tmap">Visualising KDE using tmap</h3>
+<p>The code chunk below is used to plot the output raster by using tmap functions.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="co"># tm_shape(kde_childcareSG_ad_raster) + </span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="co">#   tm_raster(palette = "viridis") +</span></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a><span class="co">#   tm_layout(legend.position = c("right", "bottom"), </span></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a><span class="co">#             frame = FALSE,</span></span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a><span class="co">#             bg.color = "#E4D5C9")</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<p><img src="images/clipboard-373649832.png" class="img-fluid"></p>
+</section>
+</section>
+<section id="extracting-study-area-using-sf-objects" class="level2">
+<h2 class="anchored" data-anchor-id="extracting-study-area-using-sf-objects">Extracting study area using sf objects</h2>
+<p>Extract and create an ppp object showing child care services and within Punggol Planning Area</p>
+<p>On the other hand, <code>filter()</code> of dplyr package should be used to extract the target planning areas as shown in the code chunk below.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="co"># pg_owin &lt;- mpsz_sf %&gt;%</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="co">#   filter(PLN_AREA_N == "PUNGGOL") %&gt;%</span></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a><span class="co">#   as.owin()</span></span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a><span class="co"># </span></span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a><span class="co"># childcare_pg = childcare_ppp[pg_owin]</span></span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a><span class="co"># </span></span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a><span class="co"># plot(childcare_pg)  </span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<p><img src="images/clipboard-4134194683.png" class="img-fluid"></p>
+</section>
+<section id="monte-carlo-simulation" class="level2">
+<h2 class="anchored" data-anchor-id="monte-carlo-simulation">Monte Carlo Simulation</h2>
+<p>In order to ensure reproducibility, it is important to include the code chunk below before using spatstat functions involve Monte Carlo simulation</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="co"># set.seed(1234)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+</section>
+<section id="edge-correction-methods-of-spatstat" class="level2">
+<h2 class="anchored" data-anchor-id="edge-correction-methods-of-spatstat">Edge correction methods of spatstat</h2>
+<p>In spatstat, edge correction methods are used to handle biases that arise when estimating spatial statistics near the boundaries of a study region. These corrections are essential for ensuring accurate estimates in spatial point pattern analysis, especially for summary statistics like the K-function, L-function, pair correlation function, etc.</p>
+<p>Common Edge Correction Methods in spatstat</p>
+<ul>
+<li><p>“none”: No edge correction is applied. This method assumes that there is no bias at the edges, which may lead to underestimation of statistics near the boundaries.</p></li>
+<li><p>“isotropic”: This method corrects for edge effects by assuming that the point pattern is isotropic (uniform in all directions). It compensates for missing neighbors outside the boundary by adjusting the distances accordingly.</p></li>
+<li><p>“translate” (Translation Correction): This method uses a translation correction, which involves translating the observation window so that every point lies entirely within it. The statistic is then averaged over all possible translations.</p></li>
+<li><p>“Ripley” (Ripley’s Correction): Similar to the isotropic correction but specifically tailored for Ripley’s K-function and related functions. It adjusts the expected number of neighbors for points near the edges based on the shape and size of the observation window.</p></li>
+<li><p>“border”: Border correction reduces bias by only considering points far enough from the boundary so that their neighborhood is fully contained within the window. This can be quite conservative but reduces the influence of edge effects.</p></li>
+</ul>
+</section>
+<section id="geospatial-analytics-for-social-good-thailand-road-accident-case-study" class="level2">
+<h2 class="anchored" data-anchor-id="geospatial-analytics-for-social-good-thailand-road-accident-case-study">Geospatial Analytics for Social Good: Thailand Road Accident Case Study</h2>
+<section id="background" class="level3">
+<h3 class="anchored" data-anchor-id="background">Background</h3>
+<ul>
+<li><p><a href="https://www.who.int/news-room/fact-sheets/detail/road-traffic-injuries">Road traffic injuries</a>, WHO.</p></li>
+<li><p><a href="https://cdn.who.int/media/docs/default-source/thailand/roadsafety/overview-en-final-25-7-19.pdf?sfvrsn=f9d7a862_2">Road traffic deaths and injuries in Thailand</a></p></li>
+</ul>
+</section>
+</section>
+<section id="the-study-area" class="level2">
+<h2 class="anchored" data-anchor-id="the-study-area">The Study Area</h2>
+<p>The study area is <a href="https://en.wikipedia.org/wiki/Bangkok_Metropolitan_Region">Bangkok Metropolitan Region</a>.<img src="images/clipboard-3943255741.png" class="img-fluid"></p>
+<p>The projected coordinate system of Thailand is&nbsp;<strong>WGS 84 / UTM zone 47N</strong>&nbsp;and the EPSG code is&nbsp;<a href="https://epsg.io/32647">32647</a>.</p>
+</section>
+<section id="the-data" class="level2">
+<h2 class="anchored" data-anchor-id="the-data">The Data</h2>
+<p>For the purpose of this exercise, three basic data sets are needed, they are:</p>
+<ul>
+<li><p><a href="https://www.kaggle.com/datasets/thaweewatboy/thailand-road-accident-2019-2022">Thailand Road Accident [2019-2022]</a> on Kaggle</p></li>
+<li><p><a href="https://data.humdata.org/dataset/hotosm_tha_roads">Thailand Roads (OpenStreetMap Export)</a> on HDX.</p></li>
+<li><p><a href="https://data.humdata.org/dataset/cod-ab-tha?">Thailand - Subnational Administrative Boundaries</a> on HDX.</p></li>
+</ul>
+</section>
+<section id="importing-traffic-accident-data" class="level2">
+<h2 class="anchored" data-anchor-id="importing-traffic-accident-data">Importing Traffic Accident Data</h2>
+<p>Using the steps you learned in previous lessons, import the downloaded accident data into R environment and save the output as an sf tibble data.frame.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="co"># rdacc_sf &lt;- read_csv("data/thai_road_accident_2019_2022.csv") %&gt;%</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a><span class="co">#   filter(!is.na(longitude) &amp; longitude != "", </span></span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a><span class="co">#          !is.na(latitude) &amp; latitude != "") %&gt;%</span></span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a><span class="co">#   st_as_sf(coords = c(</span></span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a><span class="co">#     "longitude", "latitude"),</span></span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a><span class="co">#     crs=4326) %&gt;%</span></span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a><span class="co">#   st_transform(crs = 32647) </span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+</section>
+<section id="visualising-the-accident-data" class="level2">
+<h2 class="anchored" data-anchor-id="visualising-the-accident-data">Visualising The Accident Data</h2>
+<p>Using the steps you learned in previous lessons, import the ACLED data into R environment as an sf tibble data.frame.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="co"># tmap_mode("plot")</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="co"># acled_sf %&gt;%</span></span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a><span class="co">#   filter(year == 2023 | </span></span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a><span class="co">#            event_type == "Political violence") %&gt;%</span></span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a><span class="co">#   tm_shape()+</span></span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a><span class="co">#   tm_dots()</span></span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a><span class="co"># tmap_mode("plot")</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
 
 
+</section>
 </section>
 
 </main> <!-- /main -->
