@@ -163,15 +163,17 @@ Using appropriate Exploratory Data Analysis (EDA) and Confirmatory Data Analysis
 Tip: Refer to [`ggscatterstats()`](https://indrajeetpatil.github.io/ggstatsplot/articles/web_only/ggscatterstats.html) of **ggstatsplot** package.
 
 ```{r}
-mpsz$`PreSch Density` <- as.numeric(as.character(mpsz19_shp$`PreSch Density`))
-mpsz$`PreSch Count` <- as.numeric(as.character(mpsz19_shp$`PreSch Count`)) 
+mpsz19_shp$`PreSch Density` <- as.numeric(as.character(mpsz19_shp$`PreSch Density`))
+mpsz19_shp$`PreSch Count` <- as.numeric(as.character(mpsz19_shp$`PreSch Count`)) 
 mpsz19_shp <- as.data.frame(mpsz19_shp)
 
-ggscatterstats(data = mpsz19_shp,
+ggplot(data = mpsz19_shp,
                x = `PreSch Density`,
                y = `PreSch Count`,
                type = "parametric")
 ```
+
+![](images/clipboard-1703350156.png)
 
 # Working with Population Data
 
@@ -295,7 +297,7 @@ percentmap <- function(vnam, df, legtitle=NA, mtitle="Percentile Map"){
 ### Step 4: Running the functions
 
 ```{r}
-percentmap("DEPENDENCY", mpsz_pop2023)
+#percentmap("DEPENDENCY", mpsz_pop2023)
 ```
 
 ![](images/clipboard-224480636.png)
@@ -357,7 +359,7 @@ The code chunk on the right is an R function to create a box map.
 ### Step 4: Plotting Box Map
 
 ```{r}
-boxmap("DEPENDENCY", mpsz_pop2023)
+#boxmap("DEPENDENCY", mpsz_pop2023)
 ```
 
 ![](images/clipboard-2270778185.png)
@@ -367,5 +369,5 @@ boxmap("DEPENDENCY", mpsz_pop2023)
 ```{r}
 tmap_options(check.and.fix = TRUE)
 tmap_mode("view")
-boxmap("DEPENDENCY", mpsz_pop2023)
+#boxmap("DEPENDENCY", mpsz_pop2023)
 ```
