@@ -1,0 +1,196 @@
+---
+title: "In-Class Exercise 08"
+author: "Qu JunJie"
+date: "31 October 2024"
+date-modified: "last-modified"
+execute: 
+  eval: true
+  echo: true
+  message: false
+  freeze: true
+  warning: false
+---
+
+# In-class Exercise 9: Geography of Accessibility
+
+## Getting Started
+
+```{r}
+pacman::p_load(SpatialAcc, sf, tidyverse, 
+               tmap, ggstatsplot)
+```
+
+## Count Number of Points within a Distance
+
+-   To count number of point features (i.e. CHAS clinics) within 1km of another point features (i.e. eldercare centre).
+
+<!-- -->
+
+-   Download *ELDERCARE* shapefile and *CHAS* kml file from data.gov.sg
+
+-   Using the steps your learned in Hands-on Exercise 1, import *ELDERCARE* shapefile and *CHAS* kml file into R
+
+*ELDERCARE* is in shapefile format, the code chunk below will be used:
+
+```{r}
+eldercare <- st_read(dsn = "data/rawdata",
+                     layer = "ELDERCARE") %>%
+  st_transform(crs = 3414)
+```
+
+The code chunk below is used to import kml file.
+
+```{r}
+CHAS <- st_read("data/rawdata/CHASClinics.kml") %>%
+  st_transform(crs = 3414)
+```
+
+Next, `st_buffer()` of sf package is used to create a buffer of 1km around each eldercare features
+
+```{r}
+buffer_1km <- st_buffer(eldercare, 
+                        dist = 1000)
+```
+
+The code chunk below is used to plot the newly created buffers and the CHAS clinics.
+
+```{r}
+tmap_mode("view")
+tm_shape(buffer_1km) +
+  tm_polygons() +
+tm_shape(CHAS) +
+  tm_dots()
+```
+
+Lastly, the code chunk below is used to count the number of CHAS clinics with 1km of each eldercare centre.
+
+```{r}
+buffer_1km$pts_count <- lengths(
+  st_intersects(buffer_1km, CHAS))
+```
+
+## Importing Data
+
+```{r}
+mpsz <- st_read(dsn = "data/geospatial",
+                layer = "MP14_SUBZONE_NO_SEA_PL") %>%
+  st_transform(crs = 3414)
+
+hexagons <- st_read(dsn = "data/geospatial",
+                   layer = "hexagons") %>%
+  st_transform(crs = 3414)
+
+eldercare <- st_read(dsn = "data/geospatial",
+                     layer = "ELDERCARE") %>%
+  st_transform(csr = 3414)
+```
+
+```{r}
+# ODMatrix <- read_csv("data/aspatial/OD_Matrix.csv", 
+#                      skip = 0)
+```
+
+## Data cleaning and Updating Attributes
+
+```{r}
+eldercare <- eldercare %>%
+  select(fid, ADDRESSPOS) %>%
+  mutate(capacity = 100)
+```
+
+```{r}
+hexagons <- hexagons %>%
+  select(fid) %>%
+  mutate(demand = 100)
+```
+
+```{r}
+# distmat <- ODMatrix %>%
+#   select(origin_id, destination_id, total_cost) %>%
+#   spread(destination_id, total_cost)%>%
+#   select(c(-c('origin_id')))
+```
+
+```{r}
+# distmat_km <- as.matrix(distmat/1000)
+```
+
+## Computing Handsen’s Accessibility
+
+```{r}
+# acc_Hansen <- data.frame(ac(hexagons$demand,
+#                             eldercare$capacity,
+#                             distmat_km, 
+#                             #d0 = 50,
+#                             power = 2, 
+#                             family = "Hansen"))
+```
+
+```{r}
+# colnames(acc_Hansen) <- "accHansen"
+# 
+# acc_Hansen <- as_tibble(acc_Hansen)
+# 
+# hexagon_Hansen <- bind_cols(hexagons, acc_Hansen)
+```
+
+```{r}
+# acc_Hansen <- data.frame(ac(hexagons$demand,
+#                             eldercare$capacity,
+#                             distmat_km, 
+#                             #d0 = 50,
+#                             power = 0.5, 
+#                             family = "Hansen"))
+# 
+# colnames(acc_Hansen) <- "accHansen"
+# acc_Hansen <- as_tibble(acc_Hansen)
+# hexagon_Hansen <- bind_cols(hexagons, acc_Hansen)
+```
+
+### Visualising Accessibility
+
+```{r}
+# mapex <- st_bbox(hexagons)
+# 
+# tmap_mode("plot")
+# tm_shape(hexagon_Hansen,
+#          bbox = mapex) + 
+#   tm_fill(col = "accHansen",
+#           n = 10,
+#           style = "quantile",
+#           border.col = "black",
+#           border.lwd = 1) +
+# tm_shape(eldercare) +
+#   tm_symbols(size = 0.1) +
+#   tm_layout(main.title = "Accessibility to eldercare: Hansen method",
+#             main.title.position = "center",
+#             main.title.size = 2,
+#             legend.outside = FALSE,
+#             legend.height = 0.45, 
+#             legend.width = 3.0,
+#             legend.format = list(digits = 6),
+#             legend.position = c("right", "top"),
+#             frame = TRUE) +
+#   tm_compass(type="8star", size = 2) +
+#   tm_scale_bar(width = 0.15) +
+#   tm_grid(lwd = 0.1, alpha = 0.5)
+```
+
+![](images/clipboard-2623566302.png)
+
+### Statistical graphic
+
+```{r}
+# hexagon_Hansen <- st_join(hexagon_Hansen, mpsz, 
+#                           join = st_intersects)
+```
+
+```{r}
+# ggbetweenstats(
+#   data = hexagon_Hansen,
+#   x = REGION_N,
+#   y = accHansen,
+#   type = "p")
+```
+
+![](images/clipboard-1851333075.png)
