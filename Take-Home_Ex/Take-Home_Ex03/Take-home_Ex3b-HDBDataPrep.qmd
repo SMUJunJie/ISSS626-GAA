@@ -28,7 +28,7 @@ resale_selected <- resale_tidy %>%
 ```
 
 ```{r}
-add_list <- sort(unique(resale_selected$address))
+add_list <- sort(unique(resale_tidy$address))
 ```
 
 ```{r}

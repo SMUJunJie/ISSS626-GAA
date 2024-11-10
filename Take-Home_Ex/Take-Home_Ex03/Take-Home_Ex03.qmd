@@ -1,0 +1,1275 @@
+---
+title: "Take-home Exercise 3b: Predicting HDB Resale Prices with Geographically Weighted Machine Learning Methods"
+author: "Qu JunJie"
+date: "10 November 2024"
+date-modified: "last-modified"
+execute: 
+  eval: true
+  echo: true
+  message: false
+  freeze: true
+  warning: false
+  cache: true
+---
+
+# 1. Overview
+
+Housing affordability is a significant concern globally, affecting millions of households. In Singapore, one of the world's most expensive cities, Housing and Development Board (HDB) flats provide an essential means for residents to access affordable housing. However, various structural and locational factors influence HDB resale prices, impacting both buyers and policymakers. Structural aspects such as unit size, age, and floor level, as well as locational elements like proximity to amenities and transportation, play critical roles in shaping these prices. This study focuses on analyzing HDB resale transaction records using advanced geographically weighted models, allowing for a nuanced understanding of spatial heterogeneity in Singapore’s housing market.
+
+# 2. Get Started
+
+The objective of this take-home exercise is to visualize, analyze, and interpret the spatial and spatio-temporal patterns in the data using appropriate geovisualization and analytical techniques.
+
+## 2.1 **The study area**
+
+The focus of this study would be in predict HDB resale prices between July-September 2024 by using HDB resale transaction records in 2023.
+
+## 2.2 **Install and Launching R packages**
+
+The following R packages are essential for performing data manipulation, geospatial analysis, machine learning, and statistical modeling in this exercise:
+
+-   **tidyverse**: A collection of packages designed for data science, including powerful tools for data manipulation (`dplyr`), tidying (`tidyr`), and visualization (`ggplot2`), making it easier to handle complex data workflows.
+
+-   **sf**: Provides functions for managing, processing, and analyzing spatial data in the Simple Features format, which is the standard for geospatial data storage, including points, lines, and polygons.
+
+-   **httr**: Facilitates interactions with APIs and web services, allowing users to send HTTP requests and handle responses, useful for data retrieval from online sources.
+
+-   **jsonlite**: Converts JSON data to and from R objects, enabling easy handling of JSON files, often used for web and API data.
+
+-   **rvest**: A web scraping package designed to extract data from HTML web pages, making it ideal for gathering additional data from online resources.
+
+-   **rsample**: Offers a consistent set of tools for creating resampling objects for modeling, including training and testing splits, bootstraps, and cross-validation.
+
+-   **GWmodel**: Specialized for Geographically Weighted (GW) models, which account for spatial variations by providing locally weighted regression, ideal for geospatial data where relationships vary across locations.
+
+-   **randomForest**: Implements the random forest algorithm for both regression and classification tasks, widely used for building predictive models due to its robustness and ability to handle complex data.
+
+-   **caret**: Provides a unified interface for training and evaluating machine learning models, offering tools for model tuning and validation, making it highly versatile for predictive modeling.
+
+-   **spdep**: Focuses on spatial dependence, providing tools for creating spatial weights matrices and conducting spatial autocorrelation analysis, critical for identifying spatial patterns.
+
+-   **SpatialML**: Extends machine learning methods to spatial analysis, enabling the application of predictive modeling techniques to geospatial data.
+
+-   **Metrics**: Contains a set of functions to evaluate model performance using standard error metrics, such as mean absolute error and root mean square error, useful for assessing predictive accuracy.
+
+-   **gbm**: Implements Generalized Boosted Regression Models, a flexible technique that combines decision trees with boosting for predictive modeling.
+
+-   **xgboost**: A highly efficient implementation of gradient boosted trees, widely used in machine learning competitions for its speed and performance in handling structured data.
+
+This collection of packages provides the tools necessary to perform comprehensive data manipulation, spatial analysis, and advanced machine learning for geospatial data, allowing for in-depth exploration and predictive modeling in this exercise.
+
+```{r}
+pacman::p_load(tidyverse, sf, httr, jsonlite, rvest,rsample,GWmodel,randomForest,caret, spdep, SpatialML, Metrics, tidyverse,gbm,xgboost)
+```
+
+# 3. Data Preparation
+
+In this step, the code prepares the CHAS clinic data for spatial analysis by performing essential transformations and conversions. Here’s a breakdown of each part of the code:
+
+1.  **Loading the Dataset**: The code loads the CHAS clinic data from a KML file using `st_read()`. This file contains location-based data for CHAS clinics across Singapore, including coordinates and other relevant attributes.
+
+2.  **Converting to Spatial Data**: After loading, the data is automatically recognized as spatial due to the KML format. The `sf` package reads it as a spatial data frame, allowing further spatial operations.
+
+3.  **Setting the Coordinate Reference System (CRS)**: The code then applies `st_transform(crs = 3414)` to reproject the data into the **Singapore Transverse Mercator coordinate system (EPSG: 3414)**. This CRS is specifically suited for Singapore, ensuring alignment with other local spatial data.
+
+```{r}
+CHAS <- st_read("data/HDB/rawdata/CHASClinics.kml") %>%
+  st_transform(crs = 3414)
+```
+
+In this step, the code prepares the ELDERCARE data for spatial analysis by performing essential transformations and conversions. Here's a breakdown of each part of the code:
+
+**Loading the Dataset:** The code uses `st_read()` to load the ELDERCARE data from a specified data source name (dsn) and layer. This function reads the spatial data into an `sf` object, which is a spatial data frame in R.
+
+**Converting to Spatial Data:** Upon loading, the data is recognized as spatial due to its format. The `sf` package reads it as a spatial data frame, enabling further spatial operations.
+
+**Setting the Coordinate Reference System (CRS):** The code applies `st_transform(crs = 3414)` to reproject the data into the Singapore Transverse Mercator coordinate system (EPSG: 3414). This CRS is specifically suited for Singapore, ensuring alignment with other local spatial data.
+
+```{r}
+ELDERCARE <- st_read(dsn = "data/HDB/rawdata",
+                layer = "ELDERCARE") %>%
+  st_transform(crs = 3414)
+```
+
+In this step, the code prepares the MPSZ (Master Plan Subzone) data for spatial analysis by performing essential transformations and conversions. Here’s a breakdown of each part of the code:
+
+**Loading the Dataset:** The code uses `st_read()` to load the MPSZ data from the specified data source name (dsn) and layer. This function reads spatial data into an `sf` object, treating it as a spatial data frame.
+
+**Converting to Spatial Data:** Upon loading, the data is automatically recognized as spatial, as it’s structured in a format compatible with spatial operations. The `sf` package reads it into a format suitable for spatial analysis.
+
+**Setting the Coordinate Reference System (CRS):** The code then applies `st_transform(crs = 3414)` to reproject the data into the Singapore Transverse Mercator coordinate system (EPSG: 3414). This CRS is tailored for Singapore, ensuring that the data aligns accurately with other local spatial
+
+```{r}
+mpsz <- st_read(dsn = "data/HDB/rawdata",
+                layer = "MP14_SUBZONE_NO_SEA_PL") %>%
+  st_transform(crs = 3414)
+```
+
+In this step, the code prepares the ChildCareServices data for spatial analysis by performing essential transformations and conversions. Here’s a breakdown of each part of the code:
+
+**Loading the Dataset:** The code uses `st_read()` to load the ChildCareServices data from a GeoJSON file. This file contains geospatial information on childcare service locations, which is essential for spatial analysis.
+
+**Converting to Spatial Data:** The data is automatically recognized as spatial upon loading due to its GeoJSON format. The `sf` package reads it as a spatial data frame, making it ready for spatial operations.
+
+**Setting the Coordinate Reference System (CRS):** The code applies `st_transform(crs = 3414)` to reproject the data into the Singapore Transverse Mercator coordinate system (EPSG: 3414). This CRS is specifically designed for spatial data in Singapore, ensuring that this dataset aligns with other local spatial datasets.
+
+```{r}
+ChildCareServices <- st_read("data/HDB/rawdata/ChildCareServices.geojson") %>%
+  st_transform(crs = 3414)
+```
+
+In this step, the code prepares the HawkerCentres data for spatial analysis by performing essential transformations and conversions. Here’s a breakdown of each part of the code:
+
+**Loading the Dataset:** The code uses `st_read()` to load the HawkerCentres data from a GeoJSON file. This file contains spatial data on hawker center locations, which is useful for proximity analysis in spatial studies.
+
+**Converting to Spatial Data:** Upon loading, the data is automatically recognized as spatial due to its GeoJSON format. The `sf` package reads it as a spatial data frame, making it compatible with spatial operations.
+
+**Setting the Coordinate Reference System (CRS):** The code then applies `st_transform(crs = 3414)` to reproject the data into the Singapore Transverse Mercator coordinate system (EPSG: 3414). This CRS ensures that the data aligns with other Singapore-specific spatial datasets, facilitating accurate spatial analysis across local datasets.
+
+```{r}
+HawkerCentres <- st_read("data/HDB/rawdata/HawkerCentresGEOJSON.geojson") %>%
+  st_transform(crs = 3414)
+```
+
+In this step, the code prepares the Kindergartens data for spatial analysis by performing essential transformations and conversions. Here’s a breakdown of each part of the code:
+
+**Loading the Dataset:** The code uses `st_read()` to load the Kindergartens data from a GeoJSON file. This file includes geospatial information on kindergarten locations, relevant for spatial studies involving educational facilities.
+
+**Converting to Spatial Data:** The data is recognized as spatial upon loading due to its GeoJSON format. The `sf` package reads it as a spatial data frame, enabling it to undergo spatial operations.
+
+**Setting the Coordinate Reference System (CRS):** The code applies `st_transform(crs = 3414)` to reproject the data into the Singapore Transverse Mercator coordinate system (EPSG: 3414). This CRS is optimized for Singapore, ensuring alignment with other local spatial datasets, which is essential for consistent and accurate spatial analysis.
+
+```{r}
+Kindergartens <- st_read("data/HDB/rawdata/Kindergartens.geojson") %>%
+  st_transform(crs = 3414)
+```
+
+In this step, the code prepares the Parks data for spatial analysis by performing essential transformations and conversions. Here’s a breakdown of each part of the code:
+
+**Loading the Dataset:** The code uses `st_read()` to load the Parks data from a GeoJSON file. This file contains geospatial information on park locations, useful for analyzing green spaces and recreational facilities.
+
+**Converting to Spatial Data:** The data is automatically recognized as spatial upon loading due to its GeoJSON format. The `sf` package reads it as a spatial data frame, making it ready for further spatial operations.
+
+**Setting the Coordinate Reference System (CRS):** The code then applies `st_transform(crs = 3414)` to reproject the data into the Singapore Transverse Mercator coordinate system (EPSG: 3414). This CRS is tailored for Singapore, ensuring alignment with other local spatial datasets, which is crucial for accurate spatial analysis across datasets.
+
+```{r}
+Parks <- st_read("data/HDB/rawdata/Parks.geojson") %>%
+  st_transform(crs = 3414)
+```
+
+In this step, the code prepares the Supermarkets data for spatial analysis by performing essential transformations and conversions. Here’s a breakdown of each part of the code:
+
+**Loading the Dataset:** The code uses `st_read()` to load the Supermarkets data from a GeoJSON file. This file includes geospatial information on supermarket locations, which can support analyses involving access to amenities and grocery facilities.
+
+**Converting to Spatial Data:** The data is recognized as spatial upon loading due to its GeoJSON format. The `sf` package reads it as a spatial data frame, making it compatible with spatial analysis.
+
+**Setting the Coordinate Reference System (CRS):** The code applies `st_transform(crs = 3414)` to reproject the data into the Singapore Transverse Mercator coordinate system (EPSG: 3414). This CRS is designed for Singapore, ensuring consistency and alignment with other local spatial datasets, which is essential for accurate spatial analysis.
+
+```{r}
+Supermarkets <- st_read("data/HDB/rawdata/SupermarketsGEOJSON.geojson") %>%
+  st_transform(crs = 3414)
+```
+
+In this step, the code prepares the HDB resale data for analysis by performing data loading and filtering operations. Here’s a breakdown of each part of the code:
+
+**Loading the Dataset:** The code uses `read_csv()` to load the resale data from a CSV file. This file contains information on HDB resale transactions, including attributes such as transaction dates, flat types, and other relevant details.
+
+**Filtering by Date Range:** The code then filters the data to include only records where the `month` column falls within the year 2023. This narrows the analysis to transactions within this specific time frame.
+
+**Filtering by Flat Type:** The data is further filtered to include only transactions for "3 ROOM," "4 ROOM," and "5 ROOM" flats. This selection focuses the analysis on these common flat types, which are likely relevant to the study.
+
+By performing these filtering steps, the code ensures that only relevant data from 2023 and specific flat types are retained for subsequent analysis.
+
+```{r}
+resale <- read_csv("data/HDB/rawdata/resale.csv") %>%
+  filter(month >= "2023-01" & month <= "2023-12")%>%
+  filter(flat_type %in% c("3 ROOM", "4 ROOM", "5 ROOM"))
+```
+
+In this step, the code tidies the resale data by creating new variables and transforming existing ones. Here’s a breakdown of each transformation:
+
+**Creating Full Address:** The code uses `mutate()` to create a new `address` column by combining `block` and `street_name` columns. This provides a complete address in a single column.
+
+**Extracting Remaining Lease Years and Months:** Two new columns, `remaining_lease_yr` and `remaining_lease_mth`, are created by extracting values from the `remaining_lease` column.
+
+-   `remaining_lease_yr` uses `str_sub()` to extract the first two characters, which represent the years.
+
+-   `remaining_lease_mth` uses `str_sub()` to extract characters at positions 9 to 11, representing the months.
+
+**Calculating Storey Range Average:** The code transforms `storey_range` into a numeric average to represent the mid-point of the floor range.
+
+-   If the value contains “TO” (e.g., "10 TO 12"), it calculates the average of the lower and upper bounds by extracting the numbers and summing them, then dividing by two.
+
+-   If no range is present, it simply extracts the single floor value.
+
+These transformations standardize and enhance the dataset, making it more suitable for spatial and statistical analysis.
+
+```{r}
+resale_tidy <- resale %>%
+  mutate(address = paste(block,street_name)) %>%
+  mutate(remaining_lease_yr = as.integer(
+    str_sub(remaining_lease, 0, 2)))%>%
+  mutate(remaining_lease_mth = as.integer(
+    str_sub(remaining_lease, 9, 11)))%>%
+  mutate(
+    storey_range = if_else(
+      str_detect(storey_range, "TO"),  
+      (as.numeric(str_extract(storey_range, "^[0-9]+")) + 
+       as.numeric(str_extract(storey_range, "[0-9]+$"))) / 2, 
+      as.numeric(str_extract(storey_range, "[0-9]+"))  
+    ))
+```
+
+In this step, the code extracts a sorted list of unique addresses from the `resale_tidy` dataset. Here’s a breakdown:
+
+**Creating a List of Unique Addresses:** The code applies `unique()` to the `address` column, which contains the full address (combined `block` and `street_name` values) for each resale record. This function eliminates any duplicate addresses.
+
+**Sorting the Addresses:** The `sort()` function arranges the unique addresses in ascending order, providing an ordered list that can be useful for further analysis or reporting.
+
+**Storing in `add_list`:** This sorted list is saved in `add_list`, which can now be used for tasks like geolocation, mapping, or filtering.
+
+```{r}
+add_list <- sort(unique(resale_tidy$address))
+```
+
+The function `get_coords` retrieves geographic coordinates (latitude and longitude) and postal codes for a list of addresses by querying the OneMap API. Here’s a breakdown of each part:
+
+1.  **Initialize Data Storage:** A data frame `postal_coords` is created to store coordinates and postal codes for each address in `add_list`.
+
+2.  **Loop through Addresses:** For each address in `add_list`, the function performs the following:
+
+    -   **API Request:** Sends a GET request to the OneMap API with parameters:
+
+        -   `searchVal`: Address to search.
+
+        -   `returnGeom`: Requests geometry (latitude and longitude).
+
+        -   `getAddrDetails`: Requests additional address details.
+
+    -   **Parse Response:** Converts the response to JSON, extracting `found` (number of results) and `results` (list of results).
+
+3.  **Handle Results:**
+
+    -   **Single Result:** If `found` is 1, extracts the postal code, latitude, and longitude, storing them in `new_row`.
+
+    -   **Multiple Results:** If multiple matches are found:
+
+        -   Removes entries with a postal code of "NIL."
+
+        -   If valid entries remain, selects the first valid result (top match) and extracts postal code, latitude, and longitude; otherwise, sets these as `NA`.
+
+    -   **No Result:** If `found` is 0, assigns `NA` for postal code, latitude, and longitude in `new_row`.
+
+4.  **Append Results:** Adds each `new_row` to `postal_coords`, storing all retrieved coordinates.
+
+5.  **Return Results:** The function returns `postal_coords`, a data frame containing addresses along with their postal codes and coordinates.
+
+```{r}
+get_coords <- function(add_list){
+  
+  # Create a data frame to store all retrieved coordinates
+  postal_coords <- data.frame()
+    
+  for (i in add_list){
+    #print(i)
+
+    r <- GET('https://www.onemap.gov.sg/api/common/elastic/search?',
+           query=list(searchVal=i,
+                     returnGeom='Y',
+                     getAddrDetails='Y'))
+    data <- fromJSON(rawToChar(r$content))
+    found <- data$found
+    res <- data$results
+    
+    # Create a new data frame for each address
+    new_row <- data.frame()
+    
+    # If single result, append 
+    if (found == 1){
+      postal <- res$POSTAL 
+      lat <- res$LATITUDE
+      lng <- res$LONGITUDE
+      new_row <- data.frame(address= i, 
+                            postal = postal, 
+                            latitude = lat, 
+                            longitude = lng)
+    }
+    
+    # If multiple results, drop NIL and append top 1
+    else if (found > 1){
+      # Remove those with NIL as postal
+      res_sub <- res[res$POSTAL != "NIL", ]
+      
+      # Set as NA first if no Postal
+      if (nrow(res_sub) == 0) {
+          new_row <- data.frame(address= i, 
+                                postal = NA, 
+                                latitude = NA, 
+                                longitude = NA)
+      }
+      
+      else{
+        top1 <- head(res_sub, n = 1)
+        postal <- top1$POSTAL 
+        lat <- top1$LATITUDE
+        lng <- top1$LONGITUDE
+        new_row <- data.frame(address= i, 
+                              postal = postal, 
+                              latitude = lat, 
+                              longitude = lng)
+      }
+    }
+
+    else {
+      new_row <- data.frame(address= i, 
+                            postal = NA, 
+                            latitude = NA, 
+                            longitude = NA)
+    }
+    
+    # Add the row
+    postal_coords <- rbind(postal_coords, new_row)
+  }
+  return(postal_coords)
+}
+```
+
+This line of code calls the `get_coords` function, passing in `add_list` as the argument. Here’s what happens:
+
+-   **Execution of Function:** `get_coords(add_list)` processes each address in `add_list` by querying the OneMap API, retrieving the postal codes, latitude, and longitude for each address.
+
+-   **Storing Output:** The result, which is a data frame containing the addresses along with their corresponding postal codes, latitudes, and longitudes, is stored in the variable `coords`.
+
+After running this line, `coords` will contain the geographic information needed for spatial analysis, with one row for each unique address from `add_list`. This data can now be used for mapping, proximity analysis, or integration into further spatial datasets.
+
+```{r}
+coords <- get_coords(add_list)
+```
+
+This line of code saves the `coords` data frame to an RDS file for future use. Here’s how it works:
+
+-   **`write_rds` Function:** The `write_rds()` function saves the `coords` object in a serialized format, allowing it to be efficiently stored and reloaded in R.
+
+-   **File Path:** The `"data/HDB/rds/coords.rds"` path specifies where the RDS file will be saved. This directory structure organizes the file under `data/HDB/rds`, making it easy to locate and load later.
+
+After this command, the `coords` data can be reloaded with `read_rds("data/HDB/rds/coords.rds")` without rerunning the API query, making it convenient for future analysis and reducing redundancy.
+
+```{r}
+write_rds(coords, "data/HDB/rds/coords.rds")
+```
+
+This code loads and prepares the coordinates data (`coords_1`) for spatial analysis by converting it into a spatial format and transforming it to the appropriate CRS. Here’s a breakdown:
+
+1.  **Loading the Data:** `readRDS("data/HDB/rds/coords.rds")` reads the previously saved `coords.rds` file, which contains addresses with their postal codes and coordinates, into the `coords_1` variable.
+
+2.  **Converting to Spatial Data (`sf`):**
+
+    -   The `st_as_sf()` function transforms `coords_1` into a spatial data frame (`sf` object) by defining the coordinates.
+
+    -   `coords = c("longitude", "latitude")` specifies which columns contain the geographic coordinates.
+
+    -   `crs = 4326` sets the initial coordinate reference system (CRS) to EPSG: 4326 (WGS 84), which is commonly used for geographic coordinates.
+
+3.  **Reprojecting to Singapore’s CRS (EPSG: 3414):**
+
+    -   `st_transform(crs = 3414)` reprojects the spatial data to the Singapore Transverse Mercator CRS (EPSG: 3414), which aligns with local spatial data standards.
+
+After running this code, `coords_2` will be an `sf` object with projected coordinates in Singapore’s CRS, ready for local spatial analysis and integration with other spatial datasets in CRS 3414.
+
+```{r}
+coords_1 <- readRDS("data/HDB/rds/coords.rds")
+
+coords_2 <- coords_1 %>%
+  st_as_sf(coords = c("longitude", "latitude"), crs = 4326) %>% 
+  st_transform(crs = 3414)  
+```
+
+This code merges the resale data with spatial coordinates, preparing it for geospatial analysis as an `sf` object. Here’s how it works:
+
+1.  **Joining Spatial Coordinates:**
+
+    -   `left_join(select(coords_2, address, geometry), by = "address")` merges `resale_tidy` with `coords_2`, matching rows by the `address` column.
+
+    -   Only the `address` and `geometry` columns from `coords_2` are selected to bring in the spatial geometry without unnecessary columns.
+
+2.  **Converting to Spatial Data (`sf`):**
+
+    -   `st_as_sf()` transforms the resulting dataset into an `sf` object, allowing for spatial operations.
+
+    -   This `sf` object now includes both the resale transaction data and spatial information (geometry column), enabling analysis of resale prices with spatial features.
+
+After this code, `resale_tidy_sf` becomes a spatial data frame, combining resale information with geographic locations. It’s ready for spatial queries, mapping, or analysis involving spatial relationships.
+
+```{r}
+resale_tidy_sf <- resale_tidy %>%
+  left_join(select(coords_2, address, geometry), by = "address") %>%
+  st_as_sf() 
+```
+
+This code calculates the minimum distance from each resale transaction to the nearest CHAS clinic. Here’s a step-by-step breakdown:
+
+1.  **Calculating Distances:**
+
+    -   `st_distance(resale_tidy_sf, CHAS)` computes the distances between each point in `resale_tidy_sf` (representing HDB resale flats) and every point in `CHAS` (representing CHAS clinic locations).
+
+    -   This produces a matrix (`distance_to_chas`) where each row corresponds to a flat, and each column corresponds to a clinic. The cell values represent distances.
+
+2.  **Finding Minimum Distance for Each Flat:**
+
+    -   `mutate(distance_to_chas = apply(distance_to_chas, 1, min))` replaces the `distance_to_chas` column with the minimum distance for each row (flat), representing the distance to the nearest CHAS clinic.
+
+    -   `apply(distance_to_chas, 1, min)` applies the `min` function across each row, selecting the shortest distance for each flat.
+
+After this code, `resale_tidy_sf` includes a new column, `distance_to_chas`, containing the minimum distance from each resale flat to the nearest CHAS clinic, which can be used for further spatial analysis or modeling.
+
+4o
+
+```{r}
+resale_tidy_sf$distance_to_chas <- st_distance(resale_tidy_sf, CHAS)  
+resale_tidy_sf <- resale_tidy_sf %>%
+  mutate(
+    distance_to_chas = apply(distance_to_chas, 1, min)  
+  )
+```
+
+This code calculates the minimum distance from each resale flat to the nearest childcare service. Here’s how it functions:
+
+1.  **Computing Distances to Childcare Services:**
+
+    -   `st_distance(resale_tidy_sf, ChildCareServices)` calculates the distances between each point in `resale_tidy_sf` (representing HDB resale flats) and each point in `ChildCareServices` (representing childcare locations).
+
+    -   This operation produces a distance matrix (`distance_to_childcare`) where each row represents a flat and each column a childcare center. The cell values are the distances between each flat and each childcare location.
+
+2.  **Extracting Minimum Distance for Each Flat:**
+
+    -   The code `mutate(distance_to_childcare = apply(distance_to_childcare, 1, min))` updates `distance_to_childcare` to store only the minimum distance for each flat.
+
+    -   `apply(distance_to_childcare, 1, min)` applies the `min` function across each row of the matrix, finding the closest childcare service for each flat.
+
+After running this code, `resale_tidy_sf` will include a new column, `distance_to_childcare`, showing the shortest distance from each resale flat to a childcare service. This column can be used in further analyses, such as modeling or proximity-based analysis.
+
+```{r}
+resale_tidy_sf$distance_to_childcare <- st_distance(resale_tidy_sf, ChildCareServices)  
+
+resale_tidy_sf <- resale_tidy_sf %>%
+  mutate(
+    distance_to_childcare = apply(distance_to_childcare, 1, min)  
+  )
+```
+
+This code calculates the minimum distance from each resale flat to the nearest eldercare facility. Here’s a breakdown of how it works:
+
+1.  **Calculating Distances to Eldercare Facilities:**
+
+    -   `st_distance(resale_tidy_sf, ELDERCARE)` computes the distances between each point in `resale_tidy_sf` (representing HDB resale flats) and each point in `ELDERCARE` (representing eldercare facility locations).
+
+    -   This generates a distance matrix (`distance_to_ELDERCARE`) where each row corresponds to a flat, and each column corresponds to an eldercare facility. The values represent the distances.
+
+2.  **Finding Minimum Distance for Each Flat:**
+
+    -   `mutate(distance_to_ELDERCARE = apply(distance_to_ELDERCARE, 1, min))` updates the `distance_to_ELDERCARE` column with the minimum distance for each flat.
+
+    -   `apply(distance_to_ELDERCARE, 1, min)` applies the `min` function across each row, selecting the shortest distance for each flat.
+
+After executing this code, `resale_tidy_sf` will have a new column, `distance_to_ELDERCARE`, which contains the minimum distance from each flat to the nearest eldercare facility, supporting analyses that involve proximity to eldercare services.
+
+```{r}
+resale_tidy_sf$distance_to_ELDERCARE <- st_distance(resale_tidy_sf, ELDERCARE)  
+
+resale_tidy_sf <- resale_tidy_sf %>%
+  mutate(
+    distance_to_ELDERCARE = apply(distance_to_ELDERCARE, 1, min) 
+  )
+```
+
+This code calculates the minimum distance from each resale flat to the nearest hawker center. Here’s how it works:
+
+1.  **Calculating Distances to Hawker Centers:**
+
+    -   `st_distance(resale_tidy_sf, HawkerCentres)` computes the distances between each point in `resale_tidy_sf` (representing HDB resale flats) and each point in `HawkerCentres` (representing hawker center locations).
+
+    -   This operation generates a distance matrix (`distance_to_HawkerCentres`) where each row represents a flat and each column represents a hawker center. Each cell contains the distance between a flat and a hawker center.
+
+2.  **Extracting the Minimum Distance for Each Flat:**
+
+    -   `mutate(distance_to_HawkerCentres = apply(distance_to_HawkerCentres, 1, min))` updates the `distance_to_HawkerCentres` column with the minimum distance for each flat.
+
+    -   `apply(distance_to_HawkerCentres, 1, min)` applies the `min` function across each row of the matrix, determining the nearest hawker center for each flat.
+
+After running this code, `resale_tidy_sf` will include a new column, `distance_to_HawkerCentres`, showing the shortest distance from each resale flat to a hawker center. This data can be useful for analyses involving proximity to dining options.
+
+```{r}
+resale_tidy_sf$distance_to_HawkerCentres <- st_distance(resale_tidy_sf, HawkerCentres)  
+
+resale_tidy_sf <- resale_tidy_sf %>%
+  mutate(
+    distance_to_HawkerCentres = apply(distance_to_HawkerCentres, 1, min) 
+  )
+```
+
+This code calculates the minimum distance from each resale flat to the nearest kindergarten. Here’s how it functions:
+
+1.  **Calculating Distances to Kindergartens:**
+
+    -   `st_distance(resale_tidy_sf, Kindergartens)` computes the distances between each point in `resale_tidy_sf` (representing HDB resale flats) and each point in `Kindergartens` (representing kindergarten locations).
+
+    -   This generates a distance matrix (`distance_to_Kindergartens`), where each row corresponds to a flat and each column to a kindergarten, with each cell containing the distance between a flat and a kindergarten.
+
+2.  **Finding the Minimum Distance for Each Flat:**
+
+    -   `mutate(distance_to_Kindergartens = apply(distance_to_Kindergartens, 1, min))` updates the `distance_to_Kindergartens` column with the minimum distance for each flat.
+
+    -   `apply(distance_to_Kindergartens, 1, min)` applies the `min` function across each row of the matrix, selecting the nearest kindergarten for each flat.
+
+After executing this code, `resale_tidy_sf` will include a new column, `distance_to_Kindergartens`, showing the shortest distance from each resale flat to a kindergarten. This proximity data can be useful in analyses focused on accessibility to educational facilities.
+
+```{r}
+resale_tidy_sf$distance_to_Kindergartens <- st_distance(resale_tidy_sf, Kindergartens)  
+
+resale_tidy_sf <- resale_tidy_sf %>%
+  mutate(
+    distance_to_Kindergartens = apply(distance_to_Kindergartens, 1, min) 
+  )
+```
+
+This code calculates the minimum distance from each resale flat to the nearest park. Here’s a breakdown:
+
+1.  **Calculating Distances to Parks:**
+
+    -   `st_distance(resale_tidy_sf, Parks)` computes the distances between each point in `resale_tidy_sf` (representing HDB resale flats) and each point in `Parks` (representing park locations).
+
+    -   This produces a distance matrix (`distance_to_Parks`), where each row corresponds to a flat and each column to a park. The values represent the distances between each flat and each park.
+
+2.  **Extracting the Minimum Distance for Each Flat:**
+
+    -   `mutate(distance_to_Parks = apply(distance_to_Parks, 1, min))` updates the `distance_to_Parks` column with the minimum distance for each flat.
+
+    -   `apply(distance_to_Parks, 1, min)` finds the smallest distance for each row, determining the nearest park for each flat.
+
+After this code, `resale_tidy_sf` will have a new column, `distance_to_Parks`, which records the shortest distance from each resale flat to a park. This distance measure can be used for analyses related to accessibility to green spaces.
+
+```{r}
+resale_tidy_sf$distance_to_Parks <- st_distance(resale_tidy_sf, Parks)  
+
+resale_tidy_sf <- resale_tidy_sf %>%
+  mutate(
+    distance_to_Parks = apply(distance_to_Parks, 1, min) 
+  )
+```
+
+This code calculates the minimum distance from each resale flat to the nearest supermarket. Here’s how it works:
+
+1.  **Calculating Distances to Supermarkets:**
+
+    -   `st_distance(resale_tidy_sf, Supermarkets)` computes the distances between each point in `resale_tidy_sf` (representing HDB resale flats) and each point in `Supermarkets` (representing supermarket locations).
+
+    -   This produces a distance matrix (`distance_to_Supermarkets`) where each row corresponds to a flat and each column to a supermarket, with values representing the distances between each flat and supermarket.
+
+2.  **Extracting the Minimum Distance for Each Flat:**
+
+    -   `mutate(distance_to_Supermarkets = apply(distance_to_Supermarkets, 1, min))` updates the `distance_to_Supermarkets` column with the minimum distance for each flat.
+
+    -   `apply(distance_to_Supermarkets, 1, min)` applies the `min` function across each row, identifying the nearest supermarket for each flat.
+
+After running this code, `resale_tidy_sf` will include a new column, `distance_to_Supermarkets`, which stores the shortest distance from each resale flat to a supermarket. This data is useful for analyzing accessibility to grocery facilities.
+
+```{r}
+resale_tidy_sf$distance_to_Supermarkets <- st_distance(resale_tidy_sf, Supermarkets)  
+
+resale_tidy_sf <- resale_tidy_sf %>%
+  mutate(
+    distance_to_Supermarkets = apply(distance_to_Supermarkets, 1, min) 
+  )
+```
+
+This code calculates the count of various amenities within specified distances around each resale flat, creating spatial buffers for each distance and counting the number of amenities within each buffer. Here’s a breakdown of each step:
+
+1.  **Creating Buffers and Counting Amenities:**
+
+    -   For each amenity type (e.g., CHAS clinics, childcare services), `st_buffer(geometry, dist = X)` creates a buffer of a specified radius (in meters) around each resale flat’s location.
+
+    -   `st_intersects()` identifies which amenities fall within each buffer.
+
+    -   `lengths()` counts the number of intersecting features (amenities) within each buffer.
+
+2.  **Adding Counts to `resale_tidy_sf`:**
+
+    -   Each `mutate()` line adds a new column with the count of amenities within the specified distance:
+
+        -   **CHAS_500m_count:** Number of CHAS clinics within 500 meters.
+
+        -   **ChildCareServices_500m_count:** Number of childcare services within 500 meters.
+
+        -   **ELDERCARE_350m_count:** Number of eldercare facilities within 350 meters.
+
+        -   **HawkerCentres_750m_count:** Number of hawker centers within 750 meters.
+
+        -   **Kindergartens_500m_count:** Number of kindergartens within 500 meters.
+
+        -   **Parks_1000m_count:** Number of parks within 1,000 meters.
+
+        -   **Supermarkets_1000m_count:** Number of supermarkets within 1,000 meters.
+
+After this code, `resale_tidy_sf` will contain new columns with counts of nearby amenities, allowing for analysis of accessibility to these facilities from each resale flat location.
+
+```{r}
+resale_tidy_sf <- resale_tidy_sf %>%
+  mutate(CHAS_500m_count = lengths(st_intersects(st_buffer(geometry, dist = 500), CHAS)))%>%
+  mutate(ChildCareServices_500m_count = lengths(st_intersects(st_buffer(geometry, dist = 500), ChildCareServices)))%>%
+  mutate(ELDERCARE_350m_count = lengths(st_intersects(st_buffer(geometry, dist = 350), ELDERCARE)))%>%
+  mutate(HawkerCentres_750m_count = lengths(st_intersects(st_buffer(geometry, dist = 750), HawkerCentres)))%>%
+  mutate(Kindergartens_500m_count = lengths(st_intersects(st_buffer(geometry, dist = 500), Kindergartens)))%>%
+  mutate(Parks_1000m_count = lengths(st_intersects(st_buffer(geometry, dist = 1000), Parks)))%>%
+  mutate(Supermarkets_1000m_count = lengths(st_intersects(st_buffer(geometry, dist = 1000), Supermarkets)))
+```
+
+This code cleans the `resale_tidy_sf` data by removing rows with infinite values and missing data, then restores the spatial structure. Here’s how it works:
+
+1.  **Removing Infinite and Missing Values:**
+
+    -   `st_drop_geometry()` removes the spatial geometry temporarily, making it easier to handle the data as a non-spatial data frame.
+
+    -   `filter_all(all_vars(!is.infinite(.)))` filters out rows containing infinite values in any column.
+
+    -   `na.omit()` removes rows with any missing values, resulting in `resale_data_clean`, a clean, non-spatial data frame.
+
+2.  **Synchronizing Rows with Spatial Data:**
+
+    -   `filter(row_number() %in% row_number(resale_data_clean))` in `resale_tidy_sf` ensures that only rows matching those in `resale_data_clean` are retained.
+
+    -   `mutate(across(-geometry, ~ resale_data_clean[[cur_column()]]))` replaces non-geometry columns in `resale_tidy_sf_clean` with the clean values from `resale_data_clean`.
+
+3.  **Restoring as Spatial Data:**
+
+    -   `st_as_sf(resale_tidy_sf_clean)` converts the cleaned data back into an `sf` object with spatial geometry.
+
+Finally, `head(resale_tidy_sf_clean)` displays the first few rows of the cleaned spatial dataset. This dataset is now free of infinite values and missing data, ensuring it’s ready for spatial analysis.
+
+```{r}
+resale_data_clean <- resale_tidy_sf %>%
+  st_drop_geometry() %>%
+  filter_all(all_vars(!is.infinite(.))) %>%
+  na.omit()
+
+resale_tidy_sf_clean <- resale_tidy_sf %>%
+  filter(row_number() %in% row_number(resale_data_clean)) %>%
+  mutate(across(-geometry, ~ resale_data_clean[[cur_column()]]))
+
+resale_tidy_sf_clean <- st_as_sf(resale_tidy_sf_clean)
+
+head(resale_tidy_sf_clean)
+```
+
+Before loading the predictors into a predictive model, it is always a good practice to use correlation matrix to examine if there is sign of multicolinearity.
+
+```{r}
+numeric_data <- resale_tidy_sf_clean %>%
+  st_drop_geometry() %>%
+  select_if(is.numeric)  
+
+corr_matrix <- cor(numeric_data, use = "complete.obs")
+
+corrplot::corrplot(corr_matrix, 
+                   diag = FALSE, 
+                   order = "AOE",
+                   tl.pos = "td", 
+                   tl.cex = 0.5, 
+                   method = "number", 
+                   type = "upper")
+```
+
+The correlation matrix above shows that all the correlation values are below 0.8. Hence, there is no sign of multicolinearity.
+
+# 4. **Geographically Weighted Machine Learning Methods**
+
+This code splits the cleaned resale dataset into training and testing sets for further analysis. Here’s a breakdown:
+
+1.  **Setting the Seed:** `set.seed(1234)` ensures reproducibility by setting a random seed. This makes the split consistent across different runs.
+
+2.  **Splitting the Data:**
+
+    -   `initial_split(resale_tidy_sf_clean, prop = 6.5/10)` splits the dataset into a training and testing set, with 65% of the data going to `train_data` and the remaining 35% to `test_data`.
+
+    -   The `prop = 6.5/10` argument defines the split ratio, ensuring 65% training and 35% testing.
+
+3.  **Creating Training and Testing Sets:**
+
+    -   `training(resale_split)` and `testing(resale_split)` extract the training and testing data, respectively, from the `resale_split` object.
+
+After running this code, `train_data` contains 65% of the data, while `test_data` holds the remaining 35%, both ready for model training and evaluation.
+
+```{r}
+set.seed(1234)
+resale_split <- initial_split(resale_tidy_sf_clean, 
+                              prop = 6.5/10,)
+train_data <- training(resale_split)
+test_data <- testing(resale_split)
+```
+
+These lines save the `train_data` and `test_data` sets as RDS files for easy loading and use in future analysis without needing to recreate the split. Here’s what each line does:
+
+-   **`write_rds(train_data, "data/HDB/rds/train_data.rds")`:** Saves the `train_data` set to an RDS file in the specified path. This preserves the training dataset for later use.
+
+-   **`write_rds(test_data, "data/HDB/rds/test_data.rds")`:** Saves the `test_data` set to a separate RDS file, storing the testing dataset for future reference.
+
+These saved files can be reloaded using `read_rds("data/HDB/rds/train_data.rds")` and `read_rds("data/HDB/rds/test_data.rds")`, preserving the train-test split for consistency in subsequent analyses.
+
+```{r}
+write_rds(train_data, "data/HDB/rds/train_data.rds")
+write_rds(test_data, "data/HDB/rds/test_data.rds")
+```
+
+This code fits a multiple linear regression model to predict the resale price of HDB flats using various predictors and outputs a summary of the model. Here’s a breakdown of each part:
+
+1.  **Building the Model:**
+
+    -   `lm()` creates a linear model, `price_mlr`, where the dependent variable (response) is `resale_price`.
+
+    -   The formula `resale_price ~ ...` specifies the relationship between `resale_price` and the following predictors:
+
+        -   **Flat Characteristics:** `storey_range`, `floor_area_sqm`, `lease_commence_date`, `remaining_lease_yr`, `remaining_lease_mth`.
+
+        -   **Proximity to Amenities:** `distance_to_chas`, `distance_to_childcare`, `distance_to_ELDERCARE`, `distance_to_HawkerCentres`, `distance_to_Kindergartens`, `distance_to_Parks`, `distance_to_Supermarkets`.
+
+        -   **Counts of Nearby Amenities:** `CHAS_500m_count`, `ChildCareServices_500m_count`, `ELDERCARE_350m_count`, `HawkerCentres_750m_count`, `Kindergartens_500m_count`, `Parks_1000m_count`, `Supermarkets_1000m_count`.
+
+    -   The model is trained using the `train_data` set.
+
+2.  **Summarizing the Model:**
+
+    -   `summary(price_mlr)` provides detailed output about the model, including:
+
+        -   **Coefficients:** Estimates for each predictor, showing the impact of each variable on `resale_price`.
+
+        -   **Statistical Significance (p-values):** Indicates whether each predictor is statistically significant in explaining the variance in `resale_price`.
+
+        -   **Model Fit:** R-squared and Adjusted R-squared values to assess the goodness-of-fit.
+
+        -   **Residuals:** Summarizes how well the model predictions match the actual data points, with smaller residuals indicating better fit.
+
+This model output helps interpret the effect of structural and locational factors on resale prices and evaluate which factors significantly impact housing costs in the dataset.
+
+```{r}
+price_mlr <- lm(resale_price ~ storey_range + floor_area_sqm +
+                  lease_commence_date + remaining_lease_yr + remaining_lease_mth +
+                  distance_to_chas + distance_to_childcare + distance_to_ELDERCARE +
+                  distance_to_HawkerCentres + distance_to_Kindergartens + distance_to_Parks +
+                  distance_to_Supermarkets + CHAS_500m_count + 
+                  ChildCareServices_500m_count + ELDERCARE_350m_count + 
+                  HawkerCentres_750m_count + Kindergartens_500m_count + Parks_1000m_count +
+                  Supermarkets_1000m_count,
+                data=train_data)
+summary(price_mlr)
+```
+
+This summary provides detailed information about the multiple linear regression model fitted to predict `resale_price`. Here’s an interpretation of each section:
+
+**Residuals:**
+
+-   **Residuals Summary:** Shows the distribution of residuals, the differences between the actual and predicted values. The values (Min, 1Q, Median, 3Q, Max) indicate that most predictions are close to the actual values, though there are some large residuals (e.g., Max of 609063), suggesting a few predictions deviate significantly from observed prices.
+
+**Coefficients:**
+
+-   **Intercept and Predictor Coefficients:**
+
+    -   **Intercept** (-4.239e+07): Represents the expected resale price when all other predictors are zero. While not meaningful by itself due to the scale of predictors, it helps set the baseline for predictions.
+
+    -   **Storey Range, Floor Area, Lease Attributes:** These predictors have positive and significant coefficients, meaning they generally increase resale prices (e.g., each additional square meter in floor area increases price by 5,226 SGD).
+
+    -   **Distances to Amenities:** Generally, larger distances to amenities like CHAS clinics and childcare services are associated with lower prices, as indicated by negative coefficients (e.g., `distance_to_ELDERCARE` has a coefficient of -33.70, suggesting a decline in price with increased distance).
+
+    -   **Counts of Nearby Amenities:** Proximity counts for CHAS, childcare, eldercare, hawker centers, and other amenities significantly impact prices. For instance, having more hawker centers within 750 meters increases resale prices (coefficient 2.516e+04), as they are valued community amenities.
+
+-   **Statistical Significance:** Nearly all predictors are highly significant (p \< 0.001), showing that these factors meaningfully influence resale prices.
+
+**Model Fit:**
+
+-   **Residual Standard Error (78940):** Indicates the typical deviation of resale price predictions from actual values.
+
+-   **Multiple R-squared (0.7556):** This value suggests that about 75.56% of the variation in resale prices is explained by the model, which is substantial.
+
+-   **Adjusted R-squared (0.7553):** Slightly lower than R-squared, accounting for the number of predictors and providing a more realistic measure of model fit.
+
+-   **F-statistic (2284, p \< 2.2e-16):** Indicates that the model as a whole is statistically significant, meaning the predictors together explain a significant portion of the variance in resale prices.
+
+**Summary:**
+
+This model effectively explains resale prices, with significant contributions from both structural and locational factors. Positive amenities (e.g., closer proximity to certain amenities and higher amenity counts) appear to boost prices, while increased distances to amenities and lesser accessibility can decrease prices. The high R-squared value indicates a strong model fit.
+
+This line saves the `price_mlr` multiple linear regression model as an RDS file for later use. Here’s what it does:
+
+-   **`write_rds(price_mlr, "data/HDB/rds/price_mlr.rds")`:** Serializes and stores the `price_mlr` model object in the specified file path. This allows the model to be reloaded and used without retraining, saving time and computational resources.
+
+```{r}
+write_rds(price_mlr, "data/HDB/rds/price_mlr.rds" ) 
+```
+
+This code converts the `train_data` from an `sf` (simple features) object to a `Spatial` object from the `sp` package. Here’s a breakdown:
+
+1.  **Conversion to `Spatial`:**
+
+    -   `as_Spatial(train_data)` transforms `train_data`, which is an `sf` object, into a `Spatial` object compatible with functions in the `sp` package.
+
+    -   This conversion is useful if you need to use `sp` functions that are not available in `sf`.
+
+2.  **Displaying `train_data_sp`:**
+
+    -   By calling `train_data_sp`, you display the object’s metadata, showing information like coordinate reference system, spatial extent, and feature attributes.
+
+This conversion allows `train_data_sp` to be used with packages and functions that require `Spatial` objects, facilitating compatibility across spatial analysis workflows.
+
+```{r}
+train_data_sp <- as_Spatial(train_data)
+train_data_sp
+```
+
+This code calculates the optimal bandwidth for a Geographically Weighted Regression (GWR) model using cross-validation. Here’s an explanation of each component:
+
+1.  **Function and Formula:**
+
+    -   `bw.gwr()` calculates the optimal bandwidth, determining how far the model "looks" around each data point to fit local regressions.
+
+    -   The formula `resale_price ~ ...` specifies the dependent variable `resale_price` and all predictors (e.g., `storey_range`, `floor_area_sqm`, etc.) used to model the relationship spatially.
+
+2.  **Parameters:**
+
+    -   **`data = train_data`:** Specifies the training data for calculating the bandwidth.
+
+    -   **`approach = "CV"`:** Uses cross-validation to determine the optimal bandwidth, minimizing prediction error by balancing model fit and complexity.
+
+    -   **`kernel = "gaussian"`:** Specifies a Gaussian weighting function, giving higher weights to nearby points.
+
+    -   **`adaptive = TRUE`:** Enables an adaptive bandwidth, meaning the bandwidth size adjusts depending on local data density, which can improve model performance in areas with varying point densities.
+
+    -   **`longlat = FALSE`:** Indicates that the data is projected (not in geographic coordinates), so distances are calculated accordingly.
+
+3.  **Output (`bw_adaptive`):**
+
+    -   Running `bw_adaptive` displays the optimal bandwidth calculated for the GWR model, which will be used to fit the model more accurately by defining the neighborhood radius for each local regression.
+
+```{r}
+bw_adaptive <- bw.gwr(
+  resale_price ~ storey_range + floor_area_sqm + lease_commence_date + remaining_lease_yr + 
+    remaining_lease_mth + distance_to_chas + distance_to_childcare + distance_to_ELDERCARE +
+    distance_to_HawkerCentres + distance_to_Kindergartens + distance_to_Parks + distance_to_Supermarkets + 
+    CHAS_500m_count + ChildCareServices_500m_count + ELDERCARE_350m_count + HawkerCentres_750m_count + 
+    Kindergartens_500m_count + Parks_1000m_count + Supermarkets_1000m_count,
+  data = train_data,
+  approach = "CV",
+  kernel = "gaussian",
+  adaptive = TRUE,
+  longlat = FALSE
+)
+
+bw_adaptive
+```
+
+This line saves the calculated optimal bandwidth `bw_adaptive` as an RDS file. Here’s what it does:
+
+-   **`write_rds(bw_adaptive, "data/HDB/rds/bw_adaptive.rds")`:** Serializes the `bw_adaptive` object, storing it in the specified file path. This allows you to reload and use the optimal bandwidth setting in future GWR analyses without recalculating it.
+
+```{r}
+write_rds(bw_adaptive, "data/HDB/rds/bw_adaptive.rds")
+```
+
+This code fits a Geographically Weighted Regression (GWR) model using an adaptive bandwidth. Here’s a detailed explanation of each component:
+
+1.  **Function and Formula:**
+
+    -   `gwr.basic()` fits the GWR model, which accounts for spatial variations by performing local regressions for each observation.
+
+    -   The `formula` specifies `resale_price` as the dependent variable and a set of predictors related to flat characteristics and proximity/accessibility factors.
+
+2.  **Parameters:**
+
+    -   **`data = train_data_sp`:** Uses `train_data_sp`, a `Spatial` object converted from the training data, as input data for the GWR model.
+
+    -   **`bw = bw_adaptive`:** Specifies the optimal bandwidth, previously calculated and stored in `bw_adaptive`. This bandwidth defines the size of each local neighborhood for the GWR.
+
+    -   **`kernel = 'gaussian'`:** Uses a Gaussian kernel, giving more weight to observations nearer to the focal point.
+
+    -   **`adaptive = TRUE`:** Enables an adaptive bandwidth, meaning the radius of influence around each data point adjusts based on data density.
+
+    -   **`longlat = FALSE`:** Specifies that the data uses projected coordinates, not geographic (longitude-latitude), so distances are calculated in planar space.
+
+The resulting model, `gwr_adaptive`, will provide locally varying regression coefficients, allowing you to assess how the influence of each predictor varies across the spatial extent of the data. This model is particularly useful for understanding spatial heterogeneity in housing price determinants.
+
+```{r}
+gwr_adaptive <- gwr.basic(
+  formula = resale_price ~ storey_range + floor_area_sqm + lease_commence_date + 
+            remaining_lease_yr + remaining_lease_mth + distance_to_chas + 
+            distance_to_childcare + distance_to_ELDERCARE + distance_to_HawkerCentres + 
+            distance_to_Kindergartens + distance_to_Parks + distance_to_Supermarkets + 
+            CHAS_500m_count + ChildCareServices_500m_count + ELDERCARE_350m_count + 
+            HawkerCentres_750m_count + Kindergartens_500m_count + Parks_1000m_count + 
+            Supermarkets_1000m_count,
+  data = train_data_sp,
+  bw = bw_adaptive, 
+  kernel = 'gaussian', 
+  adaptive = TRUE,
+  longlat = FALSE
+)
+```
+
+Running `gwr_adaptive` will display the output summary of the Geographically Weighted Regression (GWR) model. This summary typically includes:
+
+1.  **Local Coefficients:** For each predictor, the GWR model calculates local coefficients specific to each observation. These coefficients indicate how the effect of each predictor varies across space, providing insight into spatial heterogeneity in housing prices.
+
+2.  **Diagnostic Statistics:**
+
+    -   **AIC (Akaike Information Criterion):** Helps evaluate the model’s quality, with lower values indicating a better fit relative to model complexity.
+
+    -   **Residual Sum of Squares (RSS):** Shows the sum of squared differences between observed and predicted values across the data.
+
+    -   **R-squared and Adjusted R-squared:** Reflects the proportion of variance in resale prices explained by the model, adjusted for the number of predictors.
+
+3.  **Bandwidth Information:** Displays the adaptive bandwidth setting used, which defines the spatial range for each local regression and impacts the degree of smoothing.
+
+4.  **Summary of Local R-squared Values:** Indicates how well the model fits locally, which varies depending on spatial location and predictor influence.
+
+```{r}
+gwr_adaptive
+```
+
+This output provides a comprehensive summary of the Geographically Weighted Regression (GWR) results for predicting HDB resale prices. Here’s a detailed interpretation:
+
+**Global Regression Results:**
+
+1.  **Residuals:** These values give a summary of the difference between observed and predicted prices, indicating the distribution of errors.
+
+2.  **Coefficients:** The global coefficients offer a baseline understanding of each predictor’s influence on resale prices across the entire study area.
+
+3.  **Model Fit Metrics:**
+
+    -   **Residual Standard Error:** 78,940, which measures the average deviation between observed and predicted values.
+
+    -   **R-squared and Adjusted R-squared:** The model explains approximately 75.56% of the variance in resale prices, indicating a reasonably good fit.
+
+    -   **AIC, AICc, and BIC:** Lower values indicate better model quality and allow comparisons with other models.
+
+**GWR Results:**
+
+1.  **Model Calibration:**
+
+    -   **Kernel Function:** Gaussian kernel with an adaptive bandwidth of 312 neighbors, meaning each regression point considers the nearest 312 data points.
+
+    -   **Distance Metric:** Euclidean, appropriate for projected spatial data.
+
+2.  **GWR Coefficient Estimates:** These estimates vary spatially, providing insights into how each predictor's effect on resale prices changes across locations:
+
+    -   **Intercept:** Median value of -4.54e+07 with large spatial variation, indicating price baselines vary considerably across areas.
+
+    -   **Storey Range, Floor Area, and Lease Attributes:** Positive coefficients on `storey_range` and `floor_area_sqm` are expected, as higher floors and larger flats tend to command higher prices.
+
+    -   **Distance and Amenity Counts:** Negative coefficients for many distance variables (e.g., `distance_to_ELDERCARE`, `distance_to_Parks`) suggest that proximity to these amenities increases resale value. Higher amenity counts within proximity (e.g., `HawkerCentres_750m_count`) have a strong positive impact, as accessible amenities are valued by buyers.
+
+3.  **Diagnostic Information:**
+
+    -   **Effective Number of Parameters and Degrees of Freedom:** Reflects model complexity.
+
+    -   **AICc and AIC:** These values are used to assess model quality, with lower values indicating a better fit relative to complexity.
+
+    -   **Residual Sum of Squares:** Measures total prediction error.
+
+    -   **R-squared and Adjusted R-squared:** GWR explains approximately 78.52% of the variance in resale prices, showing improved performance over the global model, with spatial heterogeneity accounted for in local coefficients.
+
+**Summary:**
+
+The GWR model provides a nuanced view of how the impact of various predictors on resale prices changes spatially. Higher R-squared values and improved fit metrics suggest that the spatial variation captured by GWR leads to a more accurate model than a standard global regression, making it valuable for understanding local influences on property values.
+
+This line saves the `gwr_adaptive` GWR model as an RDS file:
+
+-   **`write_rds(gwr_adaptive, "data/HDB/rds/gwr_adaptive.rds")`:** This command serializes the `gwr_adaptive` model object and stores it in the specified file path. Saving the model allows you to reload it in future sessions without recalculating, preserving the local coefficients and diagnostic information.
+
+```{r}
+write_rds(gwr_adaptive, "data/HDB/rds/gwr_adaptive.rds")
+```
+
+This code trains a random forest model using the `ranger` package to predict `resale_price` based on various predictors. Here’s a breakdown of each part:
+
+1.  **Data Preparation:**
+
+    -   `train_data_clean <- train_data %>% st_drop_geometry()`: Removes spatial geometry from `train_data`, creating `train_data_clean`, a non-spatial data frame suitable for modeling.
+
+    -   `train_data_clean <- train_data %>% mutate(across(where(is.character), as.factor))`: Converts character columns in `train_data_clean` to factors, as `ranger` requires categorical variables to be in factor format.
+
+2.  **Random Forest Model:**
+
+    -   **`set.seed(1234)`:** Ensures reproducibility by setting a random seed.
+
+    -   **`ranger(...)`:** Fits a random forest model using the specified formula and data:
+
+        -   **Formula:** `resale_price ~ ...` specifies `resale_price` as the dependent variable and includes predictors like `storey_range`, `floor_area_sqm`, `distance` variables, and amenity counts.
+
+        -   **Data:** `data = train_data_clean` uses the prepared training data, without geometry and with categorical variables as factors.
+
+3.  **Model Output:**
+
+    -   `print(rf)`: Displays the summary of the trained random forest model, which includes information such as:
+
+        -   **Out-of-Bag (OOB) Error:** Provides an estimate of the model’s prediction error.
+
+        -   **Number of Trees and Variables Used at Each Split:** Shows how the random forest was built, helping to assess the model complexity.
+
+This random forest model (`rf`) captures non-linear relationships and interactions among predictors, making it effective for complex datasets with mixed types of predictors. The output will give you an overview of the model’s performance and parameter settings.
+
+```{r}
+train_data_clean <- train_data %>%
+  st_drop_geometry() %>%
+  mutate(across(where(is.character), as.factor))
+
+train_data_clean <- train_data_clean %>%
+  mutate(across(where(is.list), ~ unlist(.)))
+
+set.seed(1234)
+rf <- ranger(
+  resale_price ~ storey_range + floor_area_sqm + lease_commence_date + 
+    remaining_lease_yr + remaining_lease_mth + distance_to_chas + 
+    distance_to_childcare + distance_to_ELDERCARE + distance_to_HawkerCentres + 
+    distance_to_Kindergartens + distance_to_Parks + distance_to_Supermarkets + 
+    CHAS_500m_count + ChildCareServices_500m_count + ELDERCARE_350m_count + 
+    HawkerCentres_750m_count + Kindergartens_500m_count + Parks_1000m_count + 
+    Supermarkets_1000m_count,
+  data = train_data_clean
+)
+
+print(rf)
+```
+
+This output provides the results of the random forest model (`ranger`) trained to predict HDB resale prices. Here’s an interpretation of each key component:
+
+**Model Summary:**
+
+-   **Type:** Regression, as the goal is to predict a continuous target variable (`resale_price`).
+
+-   **Number of Trees:** 500 trees were used in the ensemble, providing a balance between accuracy and computational efficiency.
+
+-   **Sample Size:** 14,051 observations in the training data, allowing the model to capture diverse patterns in the data.
+
+-   **Number of Independent Variables:** 19 predictors were included in the model.
+
+-   **Mtry:** 4 variables were randomly selected at each split, a typical choice for regression tasks, helping reduce overfitting and improve generalization.
+
+-   **Target Node Size:** Minimum size of 5 observations in each terminal (leaf) node, controlling model complexity.
+
+-   **Variable Importance Mode:** None, meaning no variable importance metrics were calculated, though this can be added to assess feature contributions.
+
+**Performance Metrics:**
+
+-   **Splitrule:** Variance was used as the criterion for splitting, aiming to reduce prediction error within each node.
+
+-   **Out-of-Bag (OOB) Prediction Error (MSE):** 1,891,024,090, representing the mean squared error on unseen data during training. This metric helps evaluate the model's generalization.
+
+-   **R-squared (OOB):** 0.9257, indicating that 92.57% of the variance in resale prices is explained by the model, which is a very strong fit.
+
+**Summary:**
+
+The high R-squared and relatively low OOB error suggest that this random forest model performs well, capturing complex relationships and interactions among the predictors. This performance indicates that the model is likely to generalize effectively to unseen data while providing accurate predictions of resale prices.
+
+This code separates the predictors and the target variable from the `train_data` dataset, preparing it for model training or evaluation:
+
+1.  **Creating Predictors (`train_data_x`):**
+
+    -   `train_data %>% select(-resale_price)`: Selects all columns in `train_data` except `resale_price`, storing them in `train_data_x`. This data frame contains only the predictors.
+
+2.  **Creating Target Variable (`train_data_y`):**
+
+    -   `train_data$resale_price`: Extracts the `resale_price` column as a separate vector `train_data_y`, representing the target variable for modeling.
+
+This setup, with `train_data_x` as the predictors and `train_data_y` as the target, is common when preparing data for machine learning models. It allows you to pass these separately to algorithms that require distinct inputs for predictors and targets.
+
+```{r}
+train_data_x <- train_data %>% select(-resale_price)
+train_data_y <- train_data$resale_price
+```
+
+This code defines a set of parameters for training a Gradient Boosting Machine (GBM) model. Here’s an explanation of each parameter in `gbm_params`:
+
+1.  **`distribution = "gaussian"`:** Specifies the type of distribution to be used in the GBM model. "Gaussian" is appropriate for continuous targets, as in regression tasks where `resale_price` is the target.
+
+2.  **`n.trees = 1000`:** Sets the number of boosting iterations (trees) in the model. More trees generally improve accuracy but also increase training time.
+
+3.  **`interaction.depth = 4`:** Defines the maximum depth of each tree. This controls the level of interaction between variables, with higher depths capturing more complex relationships.
+
+4.  **`shrinkage = 0.01`:** Also known as the learning rate, this parameter controls the contribution of each tree to the final model. Lower values make the model learn more slowly and generally improve generalization but require more trees.
+
+5.  **`n.minobsinnode = 10`:** Specifies the minimum number of observations in each terminal node (leaf) of a tree. This controls the level of granularity in splits, with higher values reducing overfitting.
+
+These parameters (`gbm_params`) are tuned to balance model complexity, accuracy, and generalization for predicting resale prices. They will guide the GBM model to optimize predictions by fitting multiple decision trees in a sequential manner.
+
+```{r}
+gbm_params <- list(
+  distribution = "gaussian",
+  n.trees = 1000, 
+  interaction.depth = 4,  
+  shrinkage = 0.01,  
+  n.minobsinnode = 10 
+)
+```
+
+This code trains a Gradient Boosting Machine (GBM) model to predict `resale_price` using the specified parameters from `gbm_params`. Here’s a breakdown:
+
+1.  **Setting the Seed:**
+
+    -   `set.seed(1234)` ensures reproducibility of results by setting a random seed, which makes the GBM model consistent across runs.
+
+2.  **Training the GBM Model:**
+
+    -   `gbm(...)` fits the model, using `resale_price` as the target and a formula that includes various predictors.
+
+    -   **`data = train_data`:** Specifies the training dataset.
+
+    -   **Parameters:**
+
+        -   `distribution = gbm_params$distribution`: Uses a Gaussian distribution for regression.
+
+        -   `n.trees = gbm_params$n.trees`: Specifies 1000 trees.
+
+        -   `interaction.depth = gbm_params$interaction.depth`: Limits tree depth to 4, capturing up to four-level interactions.
+
+        -   `shrinkage = gbm_params$shrinkage`: Sets the learning rate to 0.01, which balances learning speed and generalization.
+
+        -   `n.minobsinnode = gbm_params$n.minobsinnode`: Ensures each node has at least 10 observations, controlling overfitting.
+
+        -   **`cv.folds = 5`:** Adds 5-fold cross-validation to evaluate model performance and help tune the number of trees for optimal accuracy.
+
+    -   **`verbose = FALSE`:** Suppresses output messages during model training.
+
+The resulting `gbm_model` object contains the trained model, including the trees, parameters, and cross-validation results. You can use this model for predictions and performance evaluation on test data. Cross-validation with `cv.folds = 5` helps assess the model’s generalization and optimize the number of trees based on validation results.
+
+```{r}
+set.seed(1234)
+gbm_model <- gbm(
+  resale_price ~ storey_range + floor_area_sqm + lease_commence_date + 
+    remaining_lease_yr + remaining_lease_mth + distance_to_chas + 
+    distance_to_childcare + distance_to_ELDERCARE + distance_to_HawkerCentres + 
+    distance_to_Kindergartens + distance_to_Parks + distance_to_Supermarkets + 
+    CHAS_500m_count + ChildCareServices_500m_count + ELDERCARE_350m_count + 
+    HawkerCentres_750m_count + Kindergartens_500m_count + Parks_1000m_count + 
+    Supermarkets_1000m_count,,
+  data = train_data,
+  distribution = gbm_params$distribution,
+  n.trees = gbm_params$n.trees,
+  interaction.depth = gbm_params$interaction.depth,
+  shrinkage = gbm_params$shrinkage,
+  n.minobsinnode = gbm_params$n.minobsinnode,
+  cv.folds = 5,  
+  verbose = FALSE
+)
+```
+
+This code identifies the optimal number of trees for the `gbm_model` based on cross-validation results. Here’s how it works:
+
+1.  **Identifying Best Number of Trees:**
+
+    -   `gbm.perf(gbm_model, method = "cv")` calculates the optimal number of trees by analyzing the model's cross-validation (CV) performance. The method identifies the point where the model achieves the lowest prediction error on the CV folds.
+
+    -   **`method = "cv"`** specifies cross-validation as the evaluation method, using the `cv.folds = 5` parameter set during model training.
+
+2.  **Printing the Optimal Tree Count:**
+
+    -   `print(best_n_trees)` displays the best number of trees, indicating the point where the model performs optimally in terms of minimizing error on unseen data.
+
+The `best_n_trees` value can then be used to make predictions with the optimal number of trees, enhancing model accuracy and avoiding overfitting.
+
+```{r}
+best_n_trees <- gbm.perf(gbm_model, method = "cv")
+print(best_n_trees)
+```
+
+This plot shows the squared error loss over iterations in the Gradient Boosting Machine (GBM) training process. Here’s an interpretation of each aspect:
+
+-   **Y-axis (Squared Error Loss):** Represents the squared error, a measure of the difference between predicted and actual values. Lower values indicate better performance, as the model's predictions are closer to the actual data.
+
+-   **X-axis (Iteration):** Represents the number of trees (iterations) added to the model. Each iteration corresponds to a new tree added to the GBM model.
+
+-   **Curve Trend:** The loss decreases steeply at first, then gradually levels off. This indicates that the model improves rapidly in early iterations, but the marginal benefit of adding more trees decreases as it approaches the optimal number of trees.
+
+-   **Vertical Blue Line:** Marks the optimal number of trees (`best_n_trees`), as determined by cross-validation. Beyond this point, additional trees add minimal value or might lead to overfitting.
+
+This plot helps identify the optimal model complexity, indicating that around 1000 trees were chosen, as further trees do not significantly reduce error.
+
+This code generates predictions for `resale_price` on the test data using the trained `gbm_model` with the optimal number of trees. Here’s how it works:
+
+1.  **Generating Predictions:**
+
+    -   `predict(gbm_model, test_data, n.trees = best_n_trees)` uses the `predict()` function to apply the `gbm_model` to `test_data`.
+
+    -   **`n.trees = best_n_trees`** specifies the optimal number of trees (determined by cross-validation) to make predictions. Using the optimal tree count helps improve prediction accuracy and model generalization.
+
+2.  **Storing Predictions:**
+
+    -   The resulting predictions are stored in the `predictions` variable, which holds the predicted resale prices for the `test_data` set.
+
+These predictions can be evaluated against actual `resale_price` values in `test_data` to assess the model’s performance, for example by calculating metrics like Mean Absolute Error (MAE) or Root Mean Squared Error (RMSE).
+
+```{r}
+predictions <- predict(gbm_model, test_data, n.trees = best_n_trees)
+```
+
+This code calculates the Root Mean Squared Error (RMSE) for the predictions on the test data, providing a measure of the model’s accuracy. Here’s the breakdown:
+
+1.  **Calculating RMSE:**
+
+    -   `(test_data$resale_price - predictions)^2` computes the squared differences between the actual `resale_price` values and the `predictions`.
+
+    -   `mean(...)` calculates the mean of these squared differences, which is the Mean Squared Error (MSE).
+
+    -   `sqrt(...)` takes the square root of the MSE to obtain the RMSE, which represents the average error between the predicted and actual prices in the same units as the target variable.
+
+2.  **Printing RMSE:**
+
+    -   `print(rmse)` displays the RMSE value, which quantifies the typical prediction error of the model on the test data.
+
+The RMSE provides insight into the model’s performance, with lower values indicating more accurate predictions.
+
+```{r}
+rmse <- sqrt(mean((test_data$resale_price - predictions)^2))
+print(rmse)
+```
+
+This output shows the Root Mean Squared Error (RMSE) for the model's predictions on the test dataset. The RMSE is calculated as follows:
+
+-   **Formula Explanation:** `rmse <- sqrt(mean((test_data$resale_price - predictions)^2))` calculates the RMSE by taking the square root of the average of the squared differences between the actual and predicted resale prices.
+
+-   **RMSE Value:** The result is approximately **62,852.57**, indicating the average deviation of the predicted resale prices from the actual values on the test set.
+
+This RMSE value provides a measure of the model's prediction accuracy, with lower values indicating better performance. An RMSE of around 62,852 suggests that, on average, the model’s predictions are within that amount of the true resale prices.
+
+This code provides a summary of the `gbm_model`, focusing on the importance of each predictor in the model at the optimal number of trees (`best_n_trees`). Here’s what it does:
+
+1.  **Model Summary:**
+
+    -   `summary(gbm_model, n.trees = best_n_trees)` generates a variable importance summary, showing how much each predictor contributes to the model.
+
+    -   **`n.trees = best_n_trees`** specifies the optimal tree count to use, ensuring the summary reflects the best-performing model.
+
+2.  **Output Details:**
+
+    -   **Variable Importance:** The output ranks predictors by their relative importance, indicating the contribution of each variable to the model’s predictions. Variables with higher importance scores have more influence on the target variable (`resale_price`).
+
+    -   **Partial Dependence Plots:** Some summary outputs may include plots showing the relationship between each important predictor and the target, which can help in understanding how each feature affects the predictions.
+
+This summary provides insights into which features are most influential for resale prices, helping to interpret the model and understand key factors driving predictions.
+
+```{r}
+summary(gbm_model, n.trees = best_n_trees)
+```
+
+This bar chart shows the relative influence of predictors in a Gradient Boosting Machine (GBM) model, indicating how much each variable contributes to predicting the target variable, `resale_price`.
+
+**Interpretation:**
+
+-   **X-axis (Relative Influence):** This represents the importance of each variable in contributing to the model's predictions. Higher values indicate greater influence on the target variable.
+
+-   **Y-axis (Variables):** Lists the predictor variables used in the model.
+
+**Key Observations:**
+
+-   **Top Predictor:** `remaining_lease_yr` has the highest relative influence by a large margin, suggesting that the number of remaining lease years is the most significant factor in predicting resale prices.
+
+-   **Other Important Predictors:** Variables such as `remaining_lease_mth` and a few others also show some influence but are much lower than `remaining_lease_yr`.
+
+-   **Minor Influence Variables:** Variables toward the bottom of the chart have very low relative influence, indicating they contribute less to the model's prediction of resale prices.
+
+This analysis highlights which variables are most critical in predicting HDB resale prices, with the lease duration (especially years remaining) being the primary driver in this model.
